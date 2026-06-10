@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { buildCommands, findMatchingCommand, type CommandContext, type VoiceCommand } from "@/lib/voice-commands";
-import { parseWithAI, getAIConfig, type AIProvider } from "@/lib/ai-client";
+import { parseWithAI, getAIConfig, type AIProvider, type AIResponse } from "@/lib/ai-client";
 
 
 interface VoiceControlOptions {
@@ -23,6 +23,7 @@ interface VoiceControlOptions {
   onExport?: () => void;
   onRefresh?: () => void;
   onStopListening?: () => void;
+  aiMode?: boolean;
   aiProvider?: "auto" | "gemini" | "openrouter" | "none";
   geminiApiKey?: string;
   openrouterApiKey?: string;
@@ -140,6 +141,7 @@ export function useVoiceControl(options: VoiceControlOptions) {
     onCommand, getSensorValue, onPumpToggle, onAutoMode, onManualMode, onScheduledMode,
     navigate, getSystemStatus, getAIRecommendation, getActiveAlerts, getControlMode,
     onSettingsSave, onAlertDismiss, onClearAlerts, onExport, onRefresh, onStopListening,
+    aiMode: aiModeOption = true,
     aiProvider: aiProviderOption,
     geminiApiKey: geminiApiKeyOption, openrouterApiKey: openrouterApiKeyOption,
     geminiModel: geminiModelOption, openrouterModel: openrouterModelOption,
@@ -147,7 +149,7 @@ export function useVoiceControl(options: VoiceControlOptions) {
 
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState<string>("");
-  const [aiMode, setAiMode] = useState(false);
+  const [aiMode, setAiMode] = useState(aiModeOption);
   const [voiceVersion, setVoiceVersion] = useState<"v1" | "v2">("v1");
   const { toast } = useToast();
   const envAIConfig = useRef(getAIConfig());
@@ -155,10 +157,17 @@ export function useVoiceControl(options: VoiceControlOptions) {
 
   // Compute effective AI config whenever aiProviderOption or key/model options change
   useEffect(() => {
+    if (!aiModeOption) {
+      aiConfigRef.current = { provider: null, apiKey: "" };
+      setAiMode(false);
+      console.log("[Clima v2] AI mode disabled via settings toggle");
+      return;
+    }
+
     if (aiProviderOption === "none") {
       aiConfigRef.current = { provider: null, apiKey: "" };
       setAiMode(false);
-      console.log("[Clima v2] AI mode disabled via settings");
+      console.log("[Clima v2] AI mode disabled via provider setting");
       return;
     }
 
@@ -170,7 +179,6 @@ export function useVoiceControl(options: VoiceControlOptions) {
       provider = env.provider;
     }
 
-    // API key: settings first, then env var
     const geminiKey = geminiApiKeyOption || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
     const openrouterKey = openrouterApiKeyOption || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "";
     let apiKey = "";
@@ -178,10 +186,10 @@ export function useVoiceControl(options: VoiceControlOptions) {
 
     if (provider === "gemini") {
       apiKey = geminiKey || env.apiKey;
-      model = geminiModelOption || env.model || "gemini-2.0-flash-lite";
+      model = geminiModelOption || env.model;
     } else if (provider === "openrouter") {
       apiKey = openrouterKey || env.apiKey;
-      model = openrouterModelOption || env.model || "openai/gpt-4o-mini";
+      model = openrouterModelOption || env.model;
     }
 
     if (provider && apiKey) {
@@ -192,7 +200,7 @@ export function useVoiceControl(options: VoiceControlOptions) {
       aiConfigRef.current = { provider: null, apiKey: "" };
       setAiMode(false);
     }
-  }, [aiProviderOption, geminiApiKeyOption, openrouterApiKeyOption, geminiModelOption, openrouterModelOption]);
+  }, [aiModeOption, aiProviderOption, geminiApiKeyOption, openrouterApiKeyOption, geminiModelOption, openrouterModelOption]);
 
   // Heartbeat — detect if Chrome silently killed recognition without firing any event
   useEffect(() => {
@@ -257,15 +265,25 @@ export function useVoiceControl(options: VoiceControlOptions) {
     const ctx = commandContextRef.current;
 
     if (aiMode && aiConfigRef.current.provider) {
-      const intent = await parseWithAI(text, aiConfigRef.current);
-      if (intent && intent !== "unknown") {
-        const cmd = commandsRef.current.find((c) => c.id === intent);
+      const aiResult = await parseWithAI(text, aiConfigRef.current);
+      if (aiResult && aiResult.intent && aiResult.intent !== "unknown") {
+        const cmd = commandsRef.current.find((c) => c.id === aiResult.intent);
         if (cmd) {
-          console.log("[Clima v2] AI matched:", intent);
-          await cmd.execute(ctx, text);
+          console.log("[Clima v2] AI matched:", aiResult.intent);
+          if (aiResult.response) {
+            await ctx.speak(aiResult.response);
+          }
+          const silentCtx = { ...ctx, speak: async () => {} };
+          await cmd.execute(silentCtx, text);
           return;
         }
       }
+      if (aiResult?.response) {
+        await ctx.speak(aiResult.response);
+      } else {
+        await ctx.speak("Hmm, I'm not sure what you're asking. Try saying 'help' to see what I can do!");
+      }
+      return;
     }
 
     const cmd = findMatchingCommand(text, commandsRef.current);
@@ -273,11 +291,7 @@ export function useVoiceControl(options: VoiceControlOptions) {
       console.log("[Clima v2] Regex matched:", cmd.id);
       await cmd.execute(ctx, text);
     } else {
-      if (aiMode && aiConfigRef.current.provider) {
-        ctx.speak("I heard you but I'm not sure what to do. Try saying help to see all commands.");
-      } else {
-        ctx.speak("Sorry, I didn't quite understand that. Try saying 'help' to see what I can do.");
-      }
+      ctx.speak("Sorry, I didn't quite understand that. Try saying 'help' to see what I can do.");
     }
   });
 

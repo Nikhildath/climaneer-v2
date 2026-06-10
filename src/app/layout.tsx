@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
 import { AppShell } from "@/components/AppShell";
@@ -10,8 +10,11 @@ export const metadata: Metadata = {
     "CLIMANEER is a real-time smart agriculture dashboard monitoring soil moisture, air humidity, temperature, pH levels, water level, and air quality via Firebase Realtime Database.",
   keywords: ["smart agriculture", "IoT", "sensor dashboard", "soil moisture", "CLIMANEER"],
   manifest: "/manifest.json",
-  themeColor: "#10b981",
   appleWebApp: { capable: true, title: "CLIMANEER", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#10b981",
 };
 
 export default function RootLayout({

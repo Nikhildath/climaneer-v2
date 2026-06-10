@@ -38,40 +38,40 @@ export function Header({ onSettingsClick, onRefresh, isOnline }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="container mx-auto px-3 sm:px-6">
-        <div className="flex h-14 sm:h-16 items-center justify-between gap-2">
+        <div className="flex h-14 sm:h-16 items-center justify-between gap-1 sm:gap-2">
           {/* Brand */}
-          <div className="flex items-center gap-2 sm:gap-3" data-testid="brand-logo">
-            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 shadow-glow-emerald">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink" data-testid="brand-logo">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-500 shadow-glow-emerald flex-shrink-0">
               <i className="fas fa-seedling text-white text-sm sm:text-lg"></i>
             </div>
-            <div>
-              <h1 className="text-base sm:text-xl font-bold tracking-tight gradient-text leading-tight">
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-xl font-bold tracking-tight gradient-text leading-tight truncate">
                 CLIMANEER
               </h1>
-              <p className="hidden sm:block text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider leading-tight">
+              <p className="hidden xl:block text-[10px] text-muted-foreground uppercase tracking-wider leading-tight">
                 Smart Agriculture
               </p>
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-1 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {/* Online dot (mobile) / full status (desktop) */}
             <div className="flex sm:hidden h-2 w-2 rounded-full" data-testid="connection-status-mobile">
               <div className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-500 animate-pulse-glow" : "bg-destructive"}`} />
             </div>
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50" data-testid="connection-status">
+            <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50" data-testid="connection-status">
               {isOnline ? (
                 <>
                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse-glow" />
-                  <Wifi className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Online</span>
+                  <Wifi className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium">Online</span>
                 </>
               ) : (
                 <>
                   <div className="h-2 w-2 rounded-full bg-destructive" />
-                  <WifiOff className="h-4 w-4 text-destructive" />
-                  <span className="text-sm font-medium">Offline</span>
+                  <WifiOff className="h-3.5 w-3.5 text-destructive" />
+                  <span className="text-xs font-medium">Offline</span>
                 </>
               )}
             </div>
@@ -108,12 +108,12 @@ export function Header({ onSettingsClick, onRefresh, isOnline }: HeaderProps) {
             {/* Settings Button */}
             <Button
               onClick={onSettingsClick}
-              className="h-9 sm:h-10 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-glow-emerald px-2 sm:px-4"
+              className="h-9 sm:h-10 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-glow-emerald px-2 sm:px-3"
               size="icon"
               data-testid="button-settings"
             >
-              <SettingsIcon className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Settings</span>
+              <SettingsIcon className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline text-sm">Settings</span>
             </Button>
           </div>
         </div>

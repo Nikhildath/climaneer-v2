@@ -57,6 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const { listening, transcript, aiMode, voiceVersion } = useVoiceControl({
+    aiMode: (settings as any).aiMode ?? true,
     aiProvider: (settings as any).aiProvider ?? "auto",
     geminiApiKey: (settings as any).geminiApiKey,
     openrouterApiKey: (settings as any).openrouterApiKey,

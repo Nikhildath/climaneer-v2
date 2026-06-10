@@ -171,7 +171,7 @@ export function ExportModal({ open, onOpenChange, history }: ExportModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] dialog-mobile-bottom" data-testid="export-modal">
+      <DialogContent className="w-full sm:max-w-xl dialog-mobile-bottom" data-testid="export-modal">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
             <Download className="h-6 w-6 text-primary" />

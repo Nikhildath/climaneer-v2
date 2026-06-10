@@ -1,3 +1,5 @@
+import { getCurrentWeather } from "./ai-client";
+
 export interface CommandContext {
   getSensorValue: (key: string) => string;
   onPumpToggle: (on: boolean) => Promise<void>;
@@ -44,7 +46,8 @@ export type CommandCategory =
   | "help"
   | "voice-control"
   | "export"
-  | "weather";
+  | "weather"
+  | "plant";
 
 export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; icon: string }> = {
   greeting: { label: "Greetings", icon: "👋" },
@@ -60,6 +63,7 @@ export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; icon: 
   "voice-control": { label: "Voice Control", icon: "🎤" },
   export: { label: "Export", icon: "📥" },
   weather: { label: "Weather", icon: "🌤️" },
+  plant: { label: "Plant Advisory", icon: "🌱" },
 };
 
 const sensorNames = [
@@ -1790,6 +1794,229 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
           "Did you know? Smart farming can reduce water usage by up to 30% while increasing crop yields.",
         ];
         ctx.speak(facts[Math.floor(Math.random() * facts.length)]);
+        return true;
+      },
+    },
+
+    // ── Weather Commands ──────────────────────────────────────────────────────
+    {
+      id: "weather.current",
+      category: "weather",
+      priority: 20,
+      patterns: [
+        /(what.?s (the )?weather|current weather|weather (today|now|outside)|how is it outside|tell me the weather)/i,
+      ],
+      description: "Get current weather conditions",
+      examples: ["What's the weather?", "Current weather"],
+      execute: async () => {
+        ctx.speak("Let me check the weather for your area.");
+        const weather = await getCurrentWeather();
+        if (!weather) {
+          ctx.speak("Sorry, I couldn't fetch the weather right now. Please check your internet connection.");
+          return true;
+        }
+        ctx.speak(`Current conditions: ${weather.condition}, temperature ${weather.temperature}°C, humidity ${weather.humidity}%, wind speed ${weather.windSpeed} km/h.`);
+        return true;
+      },
+    },
+    {
+      id: "weather.forecast",
+      category: "weather",
+      priority: 18,
+      patterns: [
+        /(weather (forecast|for (tomorrow|the week|next (few )?days))|forecast|what.?s the weather (going to be|look like))/i,
+      ],
+      description: "Get weather forecast",
+      examples: ["Weather forecast", "What's the forecast for tomorrow?"],
+      execute: async () => {
+        ctx.speak("Let me look up the forecast.");
+        const weather = await getCurrentWeather();
+        if (!weather) {
+          ctx.speak("Sorry, I couldn't fetch the forecast right now.");
+          return true;
+        }
+        if (weather.forecast.length === 0) {
+          ctx.speak("Forecast data is not available right now.");
+          return true;
+        }
+        const days = weather.forecast.map((d) => `${d.day}: ${d.condition}, high ${d.tempHigh}°C, low ${d.tempLow}°C`).join(". ");
+        ctx.speak(`Here is the forecast: ${days}.`);
+        return true;
+      },
+    },
+    {
+      id: "weather.rain",
+      category: "weather",
+      priority: 18,
+      patterns: [
+        /(will it rain|rain (forecast|today|expected)|is it going to rain|precipitation|chance of rain|rainfall)/i,
+      ],
+      description: "Check rain forecast",
+      examples: ["Will it rain today?", "Rain forecast"],
+      execute: async () => {
+        const weather = await getCurrentWeather();
+        if (!weather) {
+          ctx.speak("Sorry, I couldn't check the rain forecast right now.");
+          return true;
+        }
+        if (weather.precipitation > 0) {
+          ctx.speak(`Yes, there is precipitation right now at ${weather.precipitation} mm. The forecast shows ${weather.forecast[0]?.condition || "mixed"} conditions tomorrow.`);
+        } else {
+          const rainyDays = weather.forecast.filter((d) => d.condition.includes("rain") || d.condition.includes("drizzle") || d.condition.includes("thunderstorm"));
+          if (rainyDays.length > 0) {
+            ctx.speak(`No rain right now, but rain is expected on ${rainyDays.map((d) => d.day).join(", ")}. Plan your watering accordingly.`);
+          } else {
+            ctx.speak(`No rain in the forecast for the next few days. You may want to water your crops manually.`);
+          }
+        }
+        return true;
+      },
+    },
+    {
+      id: "weather.farming_advice",
+      category: "weather",
+      priority: 15,
+      patterns: [
+        /(weather (advice|tip|for farming)|farming weather|should i water|weather (based|impact) on farming)/i,
+      ],
+      description: "Get farming advice based on weather",
+      examples: ["Weather farming advice", "Should I water based on weather?"],
+      execute: async () => {
+        const weather = await getCurrentWeather();
+        if (!weather) {
+          ctx.speak("I can't check the weather right now, but I recommend monitoring your soil moisture sensors for watering decisions.");
+          return true;
+        }
+        if (weather.condition.includes("rain") || weather.precipitation > 0) {
+          ctx.speak(`It's currently raining (${weather.precipitation} mm). You can skip watering today to save water. Your soil moisture should naturally increase.`);
+        } else if (weather.temperature > 35) {
+          ctx.speak(`It's very hot at ${weather.temperature}°C. Consider watering in the early morning or evening to reduce evaporation.`);
+        } else if (weather.humidity < 30) {
+          ctx.speak(`Humidity is low at ${weather.humidity}%. Your crops may need extra water today. Check soil moisture levels.`);
+        } else {
+          ctx.speak(`Weather conditions are moderate at ${weather.temperature}°C with ${weather.humidity}% humidity. Normal watering schedule should be fine.`);
+        }
+        return true;
+      },
+    },
+
+    // ── Plant / Crop Advisory Commands ────────────────────────────────────────
+    {
+      id: "plant.tips",
+      category: "plant",
+      priority: 15,
+      patterns: [
+        /(plant (tips|advice|care|growing)|crop (tips|advice)|how to grow|gardening (tips|advice)|what should i grow)/i,
+      ],
+      description: "Get plant growing tips",
+      examples: ["Plant tips", "What should I grow?"],
+      execute: () => {
+        const tips = [
+          "Healthy soil is the foundation of a good harvest. Test your soil pH and nutrient levels regularly.",
+          "Rotate your crops each season to prevent soil depletion and reduce pest buildup.",
+          "Water deeply but less frequently to encourage strong root growth.",
+          "Companion planting can help deter pests naturally. For example, plant marigolds near tomatoes.",
+          "Mulching helps retain soil moisture, regulate temperature, and suppress weeds.",
+          "Start with easy-to-grow crops like leafy greens, herbs, or tomatoes if you are new to farming.",
+          "Monitor your plants daily for early signs of pests or disease. Early intervention is key.",
+        ];
+        ctx.speak(tips[Math.floor(Math.random() * tips.length)]);
+        return true;
+      },
+    },
+    {
+      id: "plant.watering",
+      category: "plant",
+      priority: 15,
+      patterns: [
+        /(watering (advice|tips|schedule|guide)|when (to |should I )water|how (often|much) (to |should I )water|irrigation (advice|tips))/i,
+      ],
+      description: "Get watering advice",
+      examples: ["When to water my crops?", "Watering tips"],
+      execute: async () => {
+        const weather = await getCurrentWeather();
+        const soil = ctx.getSensorValue("soilMoisture");
+        const soilNum = parseInt(soil) || 50;
+        if (weather && (weather.condition.includes("rain") || weather.precipitation > 0)) {
+          ctx.speak(`It's raining (${weather.precipitation} mm). You can skip watering today. Soil moisture is ${soil}.`);
+        } else if (soilNum < 30) {
+          ctx.speak(`Soil moisture is low at ${soil}. I recommend watering your crops now. Deep watering is better than frequent light watering.`);
+        } else if (soilNum < 50) {
+          ctx.speak(`Soil moisture is at ${soil}. You may want to water soon if it doesn't rain. Check again in a few hours.`);
+        } else {
+          ctx.speak(`Soil moisture is at ${soil}, which is adequate. No watering needed right now.`);
+        }
+        return true;
+      },
+    },
+    {
+      id: "plant.pest",
+      category: "plant",
+      priority: 14,
+      patterns: [
+        /(pest (control|management|prevention|advice|tips)|pests|bugs|insects (on )?(plants|crops)|how to (control|prevent) pests)/i,
+      ],
+      description: "Get pest management advice",
+      examples: ["Pest control tips", "How to prevent pests?"],
+      execute: () => {
+        const tips = [
+          "Introduce beneficial insects like ladybugs and lacewings to control aphids naturally.",
+          "Neem oil is an effective organic pesticide for many common garden pests.",
+          "Companion planting can repel pests — try planting basil near tomatoes or garlic near roses.",
+          "Keep your garden clean and remove dead plant material where pests can hide.",
+          "Rotate crops yearly to break pest life cycles and prevent soil-borne diseases.",
+          "Use row covers to protect young plants from insects without chemicals.",
+          "Monitor your plants regularly. Catching an infestation early makes treatment much easier.",
+        ];
+        ctx.speak(tips[Math.floor(Math.random() * tips.length)]);
+        return true;
+      },
+    },
+    {
+      id: "plant.seasonal",
+      category: "plant",
+      priority: 14,
+      patterns: [
+        /(seasonal (advice|planting|tips)|what to plant (this |in this |now|this season)|planting (season|guide|calendar)|what season)/i,
+      ],
+      description: "Get seasonal planting advice",
+      examples: ["What to plant this season?", "Seasonal advice"],
+      execute: () => {
+        const month = new Date().getMonth();
+        const season = month >= 2 && month <= 4 ? "spring" : month >= 5 && month <= 7 ? "summer" : month >= 8 && month <= 10 ? "fall" : "winter";
+        const advice: Record<string, string[]> = {
+          spring: ["Spring is perfect for planting tomatoes, peppers, cucumbers, and leafy greens.", "Start your seeds indoors for a head start on the growing season.", "Prepare your soil with compost before planting."],
+          summer: ["In summer, focus on heat-tolerant crops like okra, sweet potatoes, and peppers.", "Mulch heavily to retain moisture during hot months.", "Water early morning or evening to reduce evaporation."],
+          fall: ["Fall is great for planting cool-season crops like broccoli, kale, carrots, and lettuce.", "Plant cover crops to enrich soil for next spring.", "Harvest remaining warm-season crops before the first frost."],
+          winter: ["Winter is ideal for planning next year's garden and ordering seeds.", "If you're in a mild climate, try growing garlic, onions, and leafy greens.", "Use this time to maintain and repair farming equipment."],
+        };
+        const tips = advice[season] || advice.spring;
+        ctx.speak(`It's ${season} time! ${tips[Math.floor(Math.random() * tips.length)]}`);
+        return true;
+      },
+    },
+    {
+      id: "plant.soil",
+      category: "plant",
+      priority: 14,
+      patterns: [
+        /(soil (health|improvement|management|quality|care|advice|tips)|improve (the )?soil|soil (amendment|test)|how to (improve|care for) soil)/i,
+      ],
+      description: "Get soil health advice",
+      examples: ["Soil health tips", "How to improve soil?"],
+      execute: () => {
+        const tips = [
+          "Add organic matter like compost or well-rotted manure to improve soil structure and fertility.",
+          "Test your soil pH regularly. Most crops prefer a pH between 6.0 and 7.0.",
+          "Cover crops like clover or rye can prevent erosion and add nutrients to the soil.",
+          "Avoid over-tilling as it can damage soil structure and harm beneficial organisms.",
+          "Mulch with straw or wood chips to protect soil from erosion and retain moisture.",
+          "Earthworms are a sign of healthy soil. Encourage them by reducing chemical use.",
+          "Crop rotation prevents nutrient depletion and reduces soil-borne diseases.",
+        ];
+        const pH = ctx.getSensorValue("phValue");
+        const advice = tips[Math.floor(Math.random() * tips.length)];
+        ctx.speak(`Your current pH level is ${pH}. ${advice}`);
         return true;
       },
     },

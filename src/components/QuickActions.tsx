@@ -16,7 +16,7 @@ interface QuickActionsProps {
 
 export function QuickActions({ onExport, onRefresh, onSettings, pumpOn = false, onTogglePump, onAutoMode, onManualMode, currentMode = "automatic", className }: QuickActionsProps) {
   return (
-    <div className={cn("fixed right-3 sm:right-6 bottom-20 sm:bottom-6 z-40 flex flex-col gap-2 sm:gap-3 safe-bottom", className)}>
+    <div className={cn("fixed right-4 sm:right-8 lg:right-12 bottom-20 sm:bottom-6 z-40 flex flex-col gap-2 sm:gap-3 safe-bottom", className)}>
       <Button
         size="icon"
         variant="outline"

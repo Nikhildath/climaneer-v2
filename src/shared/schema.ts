@@ -85,6 +85,7 @@ export type Settings = {
   humidityHighThreshold?: number;
   humidityLowThreshold?: number;
   waterLevelLowThreshold?: number;
+  aiMode?: boolean;
   aiProvider?: "auto" | "gemini" | "openrouter" | "none";
   geminiApiKey?: string;
   openrouterApiKey?: string;

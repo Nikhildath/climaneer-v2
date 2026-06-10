@@ -111,6 +111,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     humidityHighThreshold: 80,
     humidityLowThreshold: 20,
     waterLevelLowThreshold: 20,
+    aiMode: true,
     aiProvider: "auto",
     geminiApiKey: "",
     openrouterApiKey: "",

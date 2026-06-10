@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CLIMANEER Dashboard</title>
+  <link rel="stylesheet" href="style/index.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+  <!-- Animated Background -->
+  <div class="animated-bg">
+    <div class="floating-particles"></div>
+  </div>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loading-container">
+      <div class="loading-logo">
+        <i class="fas fa-seedling"></i>
+        CLIMANEER
+      </div>
+      <div class="loading-subtitle">Smart Water Management System</div>
+      <div class="loading-progress">
+        <div class="progress-bar"></div>
+      </div>
+      <div class="loading-status">Initializing dashboard...</div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fas fa-seedling"></i>
+        </div>
+        <div class="brand-text">
+          <h1>CLIMANEER</h1>
+          <p>Smart Agriculture Platform</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="theme-toggle">
+          <button id="theme-toggle" class="btn btn-icon">
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
+        <div class="connection-status">
+          <div class="status-dot online" id="connection-status"></div>
+          <span>Online</span>
+        </div>
+        <button id="refresh-btn" class="btn btn-secondary">
+          <i class="fas fa-sync-alt"></i>
+          Refresh
+        </button>
+        <button id="settings-btn" class="btn btn-primary">
+          <i class="fas fa-cog"></i>
+          Settings
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs">
+    <div class="container">
+      <div class="tab-list">
+        <button class="tab-btn active" data-tab="dashboard">
+          <i class="fas fa-tachometer-alt"></i>
+          Dashboard
+        </button>
+        <button class="tab-btn" data-tab="analytics">
+          <i class="fas fa-chart-line"></i>
+          Analytics
+        </button>
+        <button class="tab-btn" data-tab="alerts">
+          <i class="fas fa-bell"></i>
+          Alerts
+          <span class="alert-badge" id="alert-count">0</span>
+        </button>
+        <button class="tab-btn" data-tab="history">
+          <i class="fas fa-history"></i>
+          History
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
+      <!-- Dashboard Tab -->
+      <div class="tab-content active" id="dashboard-tab">
+        <!-- Status Overview -->
+        <section class="status-overview">
+          <div class="status-card system-status">
+            <div class="card-glow"></div>
+            <div class="status-indicator active"></div>
+            <div class="status-info">
+              <h3>System Status</h3>
+              <p>All sensors operational</p>
+              <div class="uptime">Uptime: <span id="uptime">99.9%</span></div>
+            </div>
+            <div class="status-chart">
+              <canvas id="system-chart" width="60" height="60"></canvas>
+            </div>
+          </div>
+          <div class="status-card pump-status">
+            <div class="card-glow"></div>
+            <div class="status-indicator" id="pump-indicator"></div>
+            <div class="status-info">
+              <h3>Pump Status</h3>
+              <p id="pump-status-text">Checking...</p>
+              <div class="pump-runtime">Runtime: <span id="pump-runtime">0h 0m</span></div>
+            </div>
+            <div class="pump-animation" id="pump-animation">
+              <i class="fas fa-tint"></i>
+            </div>
+          </div>
+          <div class="status-card battery-status">
+            <div class="card-glow"></div>
+            <div class="battery-icon">
+              <div class="battery-level" id="battery-level"></div>
+              <i class="fas fa-bolt battery-bolt"></i>
+            </div>
+            <div class="status-info">
+              <h3>Battery Level</h3>
+              <p id="battery-text">-- %</p>
+              <div class="battery-time">Est. time: <span id="battery-time">--</span></div>
+            </div>
+          </div>
+          <div class="status-card network-status">
+            <div class="card-glow"></div>
+            <div class="network-icon">
+              <i class="fas fa-wifi"></i>
+            </div>
+            <div class="status-info">
+              <h3>Network</h3>
+              <p>Signal: <span id="signal-strength">Strong</span></p>
+              <div class="data-usage">Data: <span id="data-usage">2.3 MB</span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sensor Grid -->
+        <section class="sensor-grid">
+          <div class="sensor-card moisture-card">
+            <div class="card-glow"></div>
+            <div class="sensor-header">
+              <div class="sensor-icon">
+                <i class="fas fa-tint"></i>
+              </div>
+              <h3>Soil Moisture</h3>
+              <div class="sensor-trend" id="moisture-trend">
+                <i class="fas fa-arrow-up trend-up"></i>
+              </div>
+            </div>
+            <div class="sensor-value" id="soilMoisture">-- %</div>
+            <div class="sensor-chart">
+              <div class="progress-ring">
+                <svg class="progress-ring-svg" width="80" height="80">
+                  <circle class="progress-ring-bg" cx="40" cy="40" r="35"></circle>
+                  <circle class="progress-ring-fill moisture-fill" cx="40" cy="40" r="35" id="soil-progress"></circle>
+                </svg>
+                <div class="progress-center">
+                  <i class="fas fa-seedling"></i>
+                </div>
+              </div>
+            </div>
+            <div class="sensor-mini-chart">
+              <canvas id="moisture-mini-chart" width="200" height="40"></canvas>
+            </div>
+          </div>
+
+          <div class="sensor-card humidity-card">
+            <div class="card-glow"></div>
+            <div class="sensor-header">
+              <div class="sensor-icon">
+                <i class="fas fa-cloud"></i>
+              </div>
+              <h3>Air Humidity</h3>
+              <div class="sensor-trend" id="humidity-trend">
+                <i class="fas fa-minus trend-stable"></i>
+              </div>
+            </div>
+            <div class="sensor-value" id="airHumidity">-- %</div>
+            <div class="sensor-chart">
+              <div class="progress-ring">
+                <svg class="progress-ring-svg" width="80" height="80">
+                  <circle class="progress-ring-bg" cx="40" cy="40" r="35"></circle>
+                  <circle class="progress-ring-fill humidity-fill" cx="40" cy="40" r="35" id="humidity-progress"></circle>
+                </svg>
+                <div class="progress-center">
+                  <i class="fas fa-cloud"></i>
+                </div>
+              </div>
+            </div>
+            <div class="sensor-mini-chart">
+              <canvas id="humidity-mini-chart" width="200" height="40"></canvas>
+            </div>
+          </div>
+
+          <div class="sensor-card water-card">
+            <div class="card-glow"></div>
+            <div class="sensor-header">
+              <div class="sensor-icon">
+                <i class="fas fa-water"></i>
+              </div>
+              <h3>Water Level</h3>
+              <div class="sensor-trend" id="water-trend">
+                <i class="fas fa-arrow-down trend-down"></i>
+              </div>
+            </div>
+            <div class="sensor-value" id="waterLevel">--</div>
+            <div class="sensor-status" id="water-status">Checking...</div>
+            <div class="water-tank">
+              <div class="tank-container">
+                <div class="water-fill" id="water-fill"></div>
+                <div class="tank-levels">
+                  <div class="level-mark high"></div>
+                  <div class="level-mark medium"></div>
+                  <div class="level-mark low"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sensor-card ph-card">
+            <div class="card-glow"></div>
+            <div class="sensor-header">
+              <div class="sensor-icon">
+                <i class="fas fa-flask"></i>
+              </div>
+              <h3>pH Level</h3>
+              <div class="sensor-trend" id="ph-trend">
+                <i class="fas fa-arrow-up trend-up"></i>
+              </div>
+            </div>
+            <div class="sensor-value" id="phValue">--</div>
+            <div class="sensor-status" id="ph-status">Checking...</div>
+            <div class="ph-scale">
+              <div class="ph-indicator" id="ph-indicator"></div>
+              <div class="ph-labels">
+                <span>0</span>
+                <span>7</span>
+                <span>14</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sensor-card temp-card">
+            <div class="card-glow"></div>
+            <div class="sensor-header">
+              <div class="sensor-icon">
+                <i class="fas fa-thermometer-half"></i>
+              </div>
+              <h3>Air Temperature</h3>
+              <div class="sensor-trend" id="temp-trend">
+                <i class="fas fa-arrow-up trend-up"></i>
+              </div>
+            </div>
+            <div class="sensor-value" id="airData">--</div>
+            <div class="sensor-status">Current conditions</div>
+            <div class="temperature-gauge">
+              <div class="gauge-container">
+                <div class="gauge-fill" id="temp-gauge"></div>
+                <div class="gauge-labels">
+                  <span>0°</span>
+                  <span>50°</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sensor-card water-temp-card">
+            <div class="card-glow"></div>
+            <div class="sensor-header">
+              <div class="sensor-icon">
+                <i class="fas fa-thermometer-three-quarters"></i>
+              </div>
+              <h3>Water Temperature</h3>
+              <div class="sensor-trend" id="water-temp-trend">
+                <i class="fas fa-minus trend-stable"></i>
+              </div>
+            </div>
+            <div class="sensor-value" id="waterTemp">--</div>
+            <div class="sensor-status" id="water-temp-status">Checking...</div>
+          </div>
+
+          <div class="sensor-card air-quality-card">
+            <div class="card-glow"></div>
+            <div class="sensor-header">
+              <div class="sensor-icon">
+                <i class="fas fa-wind"></i>
+              </div>
+              <h3>Air Quality</h3>
+              <div class="sensor-trend" id="air-quality-trend">
+                <i class="fas fa-arrow-down trend-down"></i>
+              </div>
+            </div>
+            <div class="sensor-value" id="airQuality">--</div>
+            <div class="sensor-status" id="air-quality-status">Checking...</div>
+            <div class="aqi-bar">
+              <div class="aqi-fill" id="aqi-fill"></div>
+              <div class="aqi-labels">
+                <span>Good</span>
+                <span>Moderate</span>
+                <span>Poor</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sensor-card flow-card">
+            <div class="card-glow"></div>
+            <div class="sensor-header">
+              <div class="sensor-icon">
+                <i class="fas fa-tachometer-alt"></i>
+              </div>
+              <h3>Water Flow</h3>
+              <div class="sensor-trend" id="flow-trend">
+                <i class="fas fa-arrow-up trend-up"></i>
+              </div>
+            </div>
+            <div class="sensor-value" id="flowRate">--</div>
+            <div class="sensor-status" id="flow-status">Checking...</div>
+            <div class="flow-animation">
+              <div class="flow-particles"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Information Cards -->
+        <section class="info-grid">
+          <div class="info-card weather-card">
+            <div class="card-glow"></div>
+            <div class="info-header">
+              <div class="info-icon">
+                <i class="fas fa-cloud-sun"></i>
+              </div>
+              <h3>Weather Conditions</h3>
+              <button class="expand-btn" data-expand="weather">
+                <i class="fas fa-expand-alt"></i>
+              </button>
+            </div>
+            <div class="weather-content">
+              <div class="weather-main" id="weather-summary">Loading...</div>
+              <div class="weather-details" id="weather-details">--</div>
+              <div class="weather-forecast" id="weather-forecast">
+                <div class="forecast-item">
+                  <span>Tomorrow</span>
+                  <i class="fas fa-sun"></i>
+                  <span>25°C</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-card ai-card">
+            <div class="card-glow"></div>
+            <div class="info-header">
+              <div class="info-icon">
+                <i class="fas fa-robot"></i>
+              </div>
+              <h3>AI Recommendations</h3>
+              <div class="ai-status">
+                <div class="ai-thinking" id="ai-thinking">
+                  <div class="thinking-dot"></div>
+                  <div class="thinking-dot"></div>
+                  <div class="thinking-dot"></div>
+                </div>
+              </div>
+            </div>
+            <div class="ai-content">
+              <div class="ai-recommendation" id="aiRecommendation">Analyzing data...</div>
+              <div class="ai-confidence">
+                <span>Confidence: </span>
+                <div class="confidence-bar">
+                  <div class="confidence-fill" id="ai-confidence"></div>
+                </div>
+                <span id="confidence-percent">--</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="info-card stats-card">
+            <div class="card-glow"></div>
+            <div class="info-header">
+              <div class="info-icon">
+                <i class="fas fa-chart-bar"></i>
+              </div>
+              <h3>Today's Stats</h3>
+            </div>
+            <div class="stats-content">
+              <div class="stat-item">
+                <div class="stat-icon">
+                  <i class="fas fa-tint"></i>
+                </div>
+                <div class="stat-info">
+                  <span class="stat-label">Water Used</span>
+                  <span class="stat-value" id="water-used">0 L</span>
+                </div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-icon">
+                  <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-info">
+                  <span class="stat-label">Pump Runtime</span>
+                  <span class="stat-value" id="total-runtime">0h 0m</span>
+                </div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-icon">
+                  <i class="fas fa-leaf"></i>
+                </div>
+                <div class="stat-info">
+                  <span class="stat-label">Efficiency</span>
+                  <span class="stat-value" id="efficiency">95%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Control Panel -->
+        <section class="control-panel">
+          <div class="card-glow"></div>
+          <div class="control-header">
+            <h2>System Controls</h2>
+            <p>Manual override controls for pump operation</p>
+            <div class="control-mode">
+              <span>Mode: </span>
+              <span class="mode-indicator" id="control-mode">Automatic</span>
+            </div>
+          </div>
+          <div class="control-actions">
+            <button class="btn btn-success control-btn" onclick="togglePumpWithManualOverride(true)">
+              <i class="fas fa-play"></i>
+              Start Pump
+              <div class="btn-ripple"></div>
+            </button>
+            <button class="btn btn-danger control-btn" onclick="togglePumpWithManualOverride(false)">
+              <i class="fas fa-stop"></i>
+              Stop Pump
+              <div class="btn-ripple"></div>
+            </button>
+            <button class="btn btn-primary control-btn" onclick="resetAutoMode()">
+              <i class="fas fa-magic"></i>
+              Auto Mode
+              <div class="btn-ripple"></div>
+            </button>
+            <button class="btn btn-secondary control-btn" id="schedule-btn">
+              <i class="fas fa-calendar-alt"></i>
+              Schedule
+              <div class="btn-ripple"></div>
+            </button>
+          </div>
+          <div class="control-schedule" id="control-schedule" style="display: none;">
+            <h4>Irrigation Schedule</h4>
+            <div class="schedule-item">
+              <input type="time" value="06:00">
+              <span>Duration: </span>
+              <input type="number" value="30" min="1" max="120">
+              <span>min</span>
+              <button class="btn btn-sm btn-danger">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <button class="btn btn-sm btn-primary">
+              <i class="fas fa-plus"></i>
+              Add Schedule
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Analytics Tab -->
+      <div class="tab-content" id="analytics-tab">
+        <div class="analytics-header">
+          <h2>Analytics Dashboard</h2>
+          <div class="time-range">
+            <button class="btn btn-sm active" data-range="24h">24H</button>
+            <button class="btn btn-sm" data-range="7d">7D</button>
+            <button class="btn btn-sm" data-range="30d">30D</button>
+          </div>
+        </div>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Sensor Trends</h3>
+            <canvas id="trends-chart" width="400" height="200"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Water Usage</h3>
+            <canvas id="usage-chart" width="400" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alerts Tab -->
+      <div class="tab-content" id="alerts-tab">
+        <div class="alerts-header">
+          <h2>System Alerts</h2>
+          <button class="btn btn-secondary" id="clear-alerts">
+            <i class="fas fa-trash"></i>
+            Clear All
+          </button>
+        </div>
+        <div class="alerts-list" id="alerts-list">
+          <!-- Alerts will be populated here -->
+        </div>
+      </div>
+
+      <!-- History Tab -->
+      <div class="tab-content" id="history-tab">
+        <div class="history-header">
+          <h2>Data History</h2>
+          <button class="btn btn-secondary" id="export-data">
+            <i class="fas fa-download"></i>
+            Export Data
+          </button>
+        </div>
+        <div class="history-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Soil Moisture</th>
+                <th>Air Humidity</th>
+                <th>Temperature</th>
+                <th>pH Level</th>
+                <th>Water Level</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <!-- History data will be populated here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Settings Modal -->
+  <div class="modal" id="settings-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Settings</h3>
+        <button class="modal-close" id="close-settings">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <h4>Notifications</h4>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="sound-alerts" checked>
+              Sound Alerts
+            </label>
+          </div>
+          <div class="setting-item">
+            <label>
+              <input type="checkbox" id="push-notifications" checked>
+              Push Notifications
+            </label>
+          </div>
+        </div>
+        <div class="setting-group">
+          <h4>Thresholds</h4>
+          <div class="setting-item">
+            <label>Low Soil Moisture (%)</label>
+            <input type="number" id="moisture-threshold" value="30" min="0" max="100">
+          </div>
+          <div class="setting-item">
+            <label>Critical Battery Level (%)</label>
+            <input type="number" id="battery-threshold" value="20" min="0" max="100">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-settings">Cancel</button>
+        <button class="btn btn-primary" id="save-settings">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notifications -->
+  <div id="air-quality-popup" class="notification notification-warning" style="display:none;">
+    <div class="notification-icon">
+      <i class="fas fa-exclamation-triangle"></i>
+    </div>
+    <div class="notification-content">
+      <div class="notification-title">Air Quality Alert</div>
+      <div class="notification-message">Air quality levels require attention</div>
+    </div>
+    <button class="notification-close" id="aqi-confirm-btn">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+
+  <div id="pump-popup" class="notification notification-info" style="display:none;">
+    <div class="notification-icon">
+      <i class="fas fa-info-circle"></i>
+    </div>
+    <div class="notification-content">
+      <div class="notification-title">Pump Status</div>
+      <div class="notification-message"></div>
+    </div>
+  </div>
+
+  <!-- Audio -->
+  <audio id="aqi-alert-sound" src="https://commondatastorage.googleapis.com/codeskulptor-assets/jump.ogg"></audio>
+  <audio id="pump-sound" src="https://codeskulptor-demos.commondatastorage.googleapis.com/pang/pop.mp3"></audio>
+  <!--Start of Tawk.to Script-->
+  <!-- Elfsight AI Chatbot | Untitled AI Chatbot -->
+<script src="https://elfsightcdn.com/platform.js" async></script>
+<div class="elfsight-app-418aaff7-e612-47a0-86f1-f3238b1c4771" data-elfsight-app-lazy></div>
+<!--End of Tawk.to Script-->
+  <script src="script/main.js"></script>
+  <script src="script/animations.js"></script>
+  <script src="script/charts.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js"></script>
+  <script src="script/climaAI.js"></script>
+  <script src="script/voiceControl.js"></script>
+
+
+</body>
+
+</html>
+
+
+
+

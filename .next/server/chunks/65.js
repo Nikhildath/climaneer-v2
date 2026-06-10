@@ -1,0 +1,1 @@
+"use strict";exports.id=65,exports.ids=[65],exports.modules={99065:(e,t,o)=>{o.d(t,{Network:()=>r});let r=(0,o(73800).fo)("Network",{web:()=>o.e(670).then(o.bind(o,32670)).then(e=>new e.NetworkWeb)})}};

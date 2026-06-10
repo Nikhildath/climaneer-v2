@@ -1,4 +1,4 @@
-# Clima Voice Commands — Complete Reference (129 Commands)
+# CLIMA Voice Commands — Complete Reference
 
 ## 👋 Greetings & General
 
@@ -105,146 +105,178 @@
 | 74 | "Toggle mode" / "Switch control mode" | Flips auto/manual |
 | 75 | "Next scheduled run" / "Next pump cycle" | Next scheduled info |
 
+## 🌤️ Weather
+
+| # | Say This | What Happens |
+|---|----------|--------------|
+| 76 | "What's the weather?" / "Current weather" | Current temp, humidity, wind, conditions |
+| 77 | "Weather today" / "How is it outside?" | Current weather report |
+| 78 | "Weather forecast" / "Forecast" | 4-day forecast with highs/lows |
+| 79 | "What's the forecast for tomorrow?" | Detailed forecast |
+| 80 | "Will it rain?" / "Rain forecast" | Rain check + upcoming rainy days |
+| 81 | "Is it going to rain?" / "Precipitation" | Precipitation info |
+| 82 | "Weather farming advice" / "Should I water?" | Weather-based watering recommendation |
+
+## 🌱 Plant & Crop Advisory
+
+| # | Say This | What Happens |
+|---|----------|--------------|
+| 83 | "Plant tips" / "Growing advice" | Random plant care tip |
+| 84 | "What should I grow?" / "Gardening tips" | Plant care advice |
+| 85 | "When to water?" / "Watering tips" | Watering advice based on weather + soil moisture |
+| 86 | "How often should I water?" / "Irrigation advice" | Watering recommendation |
+| 87 | "Pest control tips" / "Pest management" | Organic pest control advice |
+| 88 | "How to prevent pests?" / "Bugs on plants" | Pest prevention tips |
+| 89 | "What to plant this season?" / "Seasonal advice" | Season-based planting recommendations |
+| 90 | "Planting guide" / "What season is it?" | Seasonal crop suggestions |
+| 91 | "Soil health tips" / "How to improve soil?" | Soil improvement advice + current pH |
+| 92 | "Soil management" / "Soil quality" | Soil care tips |
+
 ## 🔔 Alerts
 
 | # | Say This | What Happens |
 |---|----------|--------------|
-| 76 | "Show alerts" / "Read alerts" | Reads active alerts |
-| 77 | "Any alerts?" / "Check alerts" | Reads active alerts |
-| 78 | "How many alerts?" / "Alert count" | Count of active alerts |
-| 79 | "Latest alert" / "Most recent alert" | Latest alert details |
-| 80 | "Show warnings" / "Warning alerts" | Warning-level alerts |
-| 81 | "Critical alerts" / "Danger alerts" | Critical alerts only |
-| 82 | "Dismiss all alerts" / "Clear alerts" | Clears all alerts |
-| 83 | "Mark all as read" / "Acknowledge all" | Marks all read |
-| 84 | "Dismiss latest alert" / "Remove last alert" | Dismisses most recent |
-| 85 | "How many unread?" / "Unread alerts" | Unread count |
-| 86 | "Pending alerts" / "New alerts" | Unread count |
-| 87 | "Alert settings" / "Configure alerts" | Alert config info |
+| 93 | "Show alerts" / "Read alerts" | Reads active alerts |
+| 94 | "Any alerts?" / "Check alerts" | Reads active alerts |
+| 95 | "How many alerts?" / "Alert count" | Count of active alerts |
+| 96 | "Latest alert" / "Most recent alert" | Latest alert details |
+| 97 | "Show warnings" / "Warning alerts" | Warning-level alerts |
+| 98 | "Critical alerts" / "Danger alerts" | Critical alerts only |
+| 99 | "Dismiss all alerts" / "Clear alerts" | Clears all alerts |
+| 100 | "Mark all as read" / "Acknowledge all" | Marks all read |
+| 101 | "Dismiss latest alert" / "Remove last alert" | Dismisses most recent |
+| 102 | "How many unread?" / "Unread alerts" | Unread count |
+| 103 | "Pending alerts" / "New alerts" | Unread count |
+| 104 | "Alert settings" / "Configure alerts" | Alert config info |
 
 ## 🧭 Navigation
 
 | # | Say This | What Happens |
 |---|----------|--------------|
-| 88 | "Go to dashboard" / "Show home" | Navigates to dashboard |
-| 89 | "Go to analytics" / "Show charts" | Navigates to analytics |
-| 90 | "Open graphs" / "Show trends" | Navigates to analytics |
-| 91 | "Go to history" / "Show logs" | Navigates to history |
-| 92 | "Go to alerts page" / "Open notifications" | Navigates to alerts |
-| 93 | "Open settings" / "Go to settings" | Opens settings |
-| 94 | "Go back" / "Previous page" | Back to dashboard |
-| 95 | "Refresh page" / "Reload page" | Reloads the app |
+| 105 | "Go to dashboard" / "Show home" | Navigates to dashboard |
+| 106 | "Go to analytics" / "Show charts" | Navigates to analytics |
+| 107 | "Open graphs" / "Show trends" | Navigates to analytics |
+| 108 | "Go to history" / "Show logs" | Navigates to history |
+| 109 | "Go to alerts page" / "Open notifications" | Navigates to alerts |
+| 110 | "Open settings" / "Go to settings" | Opens settings |
+| 111 | "Go back" / "Previous page" | Back to dashboard |
+| 112 | "Refresh page" / "Reload page" | Reloads the app |
 
 ## 📊 System Info
 
 | # | Say This | What Happens |
 |---|----------|--------------|
-| 96 | "System status" / "Health check" | System + mode report |
-| 97 | "Status overview" / "How is the system?" | System + mode report |
-| 98 | "AI recommendation" / "What does AI say?" | Reads AI suggestion |
-| 99 | "AI suggest" / "What should I do?" | Reads AI suggestion |
-| 100 | "What time is it?" / "Current time" | Tells current time |
-| 101 | "What's the date?" / "Today's date" | Tells today's date |
-| 102 | "Network status" / "Am I online?" | Network connectivity |
-| 103 | "Connection status" / "Internet status" | Network connectivity |
-| 104 | "How many sensors?" / "Sensor count" | Lists sensor types |
-| 105 | "When was the last update?" / "Data age" | Last refresh info |
-| 106 | "System version" / "App version" | Version info |
-| 107 | "What is this?" / "About CLIMANEER" | App description |
-| 108 | "Refresh data" / "Update sensors" | Refreshes sensor data |
+| 113 | "System status" / "Health check" | System + mode report |
+| 114 | "Status overview" / "How is the system?" | System + mode report |
+| 115 | "AI recommendation" / "What does AI say?" | Reads AI suggestion |
+| 116 | "AI suggest" / "What should I do?" | Reads AI suggestion |
+| 117 | "What time is it?" / "Current time" | Tells current time |
+| 118 | "What's the date?" / "Today's date" | Tells today's date |
+| 119 | "Network status" / "Am I online?" | Network connectivity |
+| 120 | "Connection status" / "Internet status" | Network connectivity |
+| 121 | "How many sensors?" / "Sensor count" | Lists sensor types |
+| 122 | "When was the last update?" / "Data age" | Last refresh info |
+| 123 | "System version" / "App version" | Version info |
+| 124 | "What is this?" / "About CLIMANEER" | App description |
+| 125 | "Refresh data" / "Update sensors" | Refreshes sensor data |
 
 ## 🔧 Settings
 
 | # | Say This | What Happens |
 |---|----------|--------------|
-| 109 | "Set moisture threshold to 30" | Updates moisture alert level |
-| 110 | "Set battery threshold to 20" | Updates battery alert level |
-| 111 | "Set max temperature to 35" | Updates high temp threshold |
-| 112 | "Set min temperature to 5" | Updates low temp threshold |
-| 113 | "Set max humidity to 80" | Updates high humidity threshold |
-| 114 | "Set min humidity to 20" | Updates low humidity threshold |
-| 115 | "Set low water level to 20" | Updates water level threshold |
-| 116 | "Set AQI threshold to 150" | Updates air quality threshold |
-| 117 | "Switch to Celsius" / "Use Fahrenheit" | Changes temperature unit |
-| 118 | "Enable sound alerts" / "Turn on sound" | Enables audio alerts |
-| 119 | "Mute sound alerts" / "Disable sound" | Disables audio alerts |
-| 120 | "Enable notifications" / "Turn on notifications" | Enables push alerts |
-| 121 | "Disable notifications" | Disables push alerts |
-| 122 | "Set refresh interval to 10 seconds" | Changes poll rate |
-| 123 | "Dark mode on" / "Enable dark mode" | Dark theme |
-| 124 | "Light mode on" / "Disable dark mode" | Light theme |
-| 125 | "Set control mode to automatic" | Changes control mode |
-| 126 | "Set control mode to manual" | Changes control mode |
-| 127 | "Set control mode to scheduled" | Changes control mode |
+| 126 | "Set moisture threshold to 30" | Updates moisture alert level |
+| 127 | "Set battery threshold to 20" | Updates battery alert level |
+| 128 | "Set max temperature to 35" | Updates high temp threshold |
+| 129 | "Set min temperature to 5" | Updates low temp threshold |
+| 130 | "Set max humidity to 80" | Updates high humidity threshold |
+| 131 | "Set min humidity to 20" | Updates low humidity threshold |
+| 132 | "Set low water level to 20" | Updates water level threshold |
+| 133 | "Set AQI threshold to 150" | Updates air quality threshold |
+| 134 | "Switch to Celsius" / "Use Fahrenheit" | Changes temperature unit |
+| 135 | "Enable sound alerts" / "Turn on sound" | Enables audio alerts |
+| 136 | "Mute sound alerts" / "Disable sound" | Disables audio alerts |
+| 137 | "Enable notifications" / "Turn on notifications" | Enables push alerts |
+| 138 | "Disable notifications" | Disables push alerts |
+| 139 | "Set refresh interval to 10 seconds" | Changes poll rate |
+| 140 | "Dark mode on" / "Enable dark mode" | Dark theme |
+| 141 | "Light mode on" / "Disable dark mode" | Light theme |
+| 142 | "Set control mode to automatic" | Changes control mode |
+| 143 | "Set control mode to manual" | Changes control mode |
+| 144 | "Set control mode to scheduled" | Changes control mode |
 
 ## 📅 Scheduling
 
 | # | Say This | What Happens |
 |---|----------|--------------|
-| 128 | "Set schedule start to 8 AM" | Opens scheduling settings |
-| 129 | "Set schedule end to 6 PM" | Opens scheduling settings |
-| 130 | "Set pump duration to 30 minutes" | Updates duration |
-| 131 | "Enable schedule" / "Activate schedule" | Enables scheduled mode |
-| 132 | "Disable schedule" / "Turn off schedule" | Disables scheduled mode |
+| 145 | "Set schedule start to 8 AM" | Opens scheduling settings |
+| 146 | "Set schedule end to 6 PM" | Opens scheduling settings |
+| 147 | "Set pump duration to 30 minutes" | Updates duration |
+| 148 | "Enable schedule" / "Activate schedule" | Enables scheduled mode |
+| 149 | "Disable schedule" / "Turn off schedule" | Disables scheduled mode |
 
 ## 📥 Export
 
 | # | Say This | What Happens |
 |---|----------|--------------|
-| 133 | "Export as CSV" / "Download CSV" | Opens CSV export |
-| 134 | "Export as JSON" / "Download JSON" | Opens JSON export |
-| 135 | "Export data" / "Download data" | Opens export dialog |
-| 136 | "Schedule daily report" / "Auto export" | Not yet available |
+| 150 | "Export as CSV" / "Download CSV" | Opens CSV export |
+| 151 | "Export as JSON" / "Download JSON" | Opens JSON export |
+| 152 | "Export data" / "Download data" | Opens export dialog |
+| 153 | "Schedule daily report" / "Auto export" | Not yet available |
 
 ## ❓ Help
 
 | # | Say This | What Happens |
 |---|----------|--------------|
-| 137 | "Help" / "What can you do?" | General help overview |
-| 138 | "Commands" / "Show commands" | Help overview |
-| 139 | "How to use?" / "Capabilities" | Help overview |
-| 140 | "List all commands" / "All commands" | 100+ commands note |
-| 141 | "Help with sensors" / "Sensor commands" | Sensor help |
-| 142 | "Help with pump" / "Pump commands" | Pump help |
-| 143 | "Help with modes" / "Mode help" | Modes help |
-| 144 | "Help with alerts" | Alerts help |
-| 145 | "Help with navigation" | Navigation help |
-| 146 | "Help with schedule" | Schedule help |
-| 147 | "Help with settings" | Settings help |
-| 148 | "Help with export" | Export help |
-| 149 | "How does voice work?" / "Voice help" | Voice control help |
+| 154 | "Help" / "What can you do?" | General help overview |
+| 155 | "Commands" / "Show commands" | Help overview |
+| 156 | "How to use?" / "Capabilities" | Help overview |
+| 157 | "List all commands" / "All commands" | 170+ commands note |
+| 158 | "Help with sensors" / "Sensor commands" | Sensor help |
+| 159 | "Help with pump" / "Pump commands" | Pump help |
+| 160 | "Help with modes" / "Mode help" | Modes help |
+| 161 | "Help with alerts" | Alerts help |
+| 162 | "Help with navigation" | Navigation help |
+| 163 | "Help with schedule" | Schedule help |
+| 164 | "Help with settings" | Settings help |
+| 165 | "Help with export" | Export help |
+| 166 | "How does voice work?" / "Voice help" | Voice control help |
 
 ## 🎤 Voice Control
 
 | # | Say This | What Happens |
 |---|----------|--------------|
-| 150 | "Stop listening" / "Go to sleep" | Stops voice recognition |
-| 151 | "Silent mode" / "Voice off" | Stops voice recognition |
-| 152 | "Test voice" / "Sound test" | Tests speech output |
-| 153 | "Repeat that" / "Say again" | Repeat (not yet supported) |
-| 154 | "Speak louder" / "Volume up" | Increases volume |
-| 155 | "Speak softer" / "Volume down" | Decreases volume |
-| 156 | "Voice settings" / "Configure voice" | Voice config info |
-| 157 | "Is voice active?" / "Microphone status" | Voice status check |
-| 158 | "Enable AI mode" | AI parsing toggle |
-| 159 | "Disable AI mode" | AI parsing toggle |
+| 167 | "Stop listening" / "Go to sleep" | Stops voice recognition |
+| 168 | "Silent mode" / "Voice off" | Stops voice recognition |
+| 169 | "Test voice" / "Sound test" | Tests speech output |
+| 170 | "Repeat that" / "Say again" | Repeat (not yet supported) |
+| 171 | "Speak louder" / "Volume up" | Increases volume |
+| 172 | "Speak softer" / "Volume down" | Decreases volume |
+| 173 | "Voice settings" / "Configure voice" | Voice config info |
+| 174 | "Is voice active?" / "Microphone status" | Voice status check |
+| 175 | "Enable AI mode" | AI parsing toggle |
+| 176 | "Disable AI mode" | AI parsing toggle |
 
 ## 🎯 Fun
 
 | # | Say This | What Happens |
 |---|----------|--------------|
-| 160 | "Motivate me" / "Give me a tip" | Farming quote |
-| 161 | "Inspire me" / "Farm quote" | Farming quote |
-| 162 | "Tell me a fun fact" / "Make me laugh" | Random plant/farm fact |
+| 177 | "Motivate me" / "Give me a tip" | Farming quote |
+| 178 | "Inspire me" / "Farm quote" | Farming quote |
+| 179 | "Tell me a fun fact" / "Make me laugh" | Random plant/farm fact |
 
 ---
 
 ## 🎙️ How to Use
 
-1. Click the **microphone button** (left side, green glowing icon)
+1. Click the **microphone button** (green glow, left side)
 2. Speak clearly in English
-3. Wait for Clima to respond via speech
+3. CLIMA responds aloud
 
 ## 🤖 AI Mode (Optional)
 
-Set `NEXT_PUBLIC_AI_PROVIDER` and `NEXT_PUBLIC_GEMINI_API_KEY` or `NEXT_PUBLIC_OPENROUTER_API_KEY` in `.env.local` to enable natural language understanding via Gemini or OpenRouter.
+Set `NEXT_PUBLIC_AI_PROVIDER` and `NEXT_PUBLIC_GEMINI_API_KEY` or `NEXT_PUBLIC_OPENROUTER_API_KEY` in `.env.local` to enable natural language understanding via Gemini or OpenRouter. With AI mode, CLIMA can handle complex sentences, follow-up questions, and conversational commands. When one provider is rate-limited, CLIMA automatically falls back to the other.
+
+---
+
+**Last Updated:** June 2026
+**Total Commands:** 179

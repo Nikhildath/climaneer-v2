@@ -5,12 +5,16 @@ import { AppShell } from "@/components/AppShell";
 import { PWARegister } from "@/components/PWARegister";
 
 export const metadata: Metadata = {
-  title: "CLIMANEER — Smart Agriculture Dashboard",
+  title: "climaneer v2 — Smart Agriculture Dashboard",
   description:
-    "CLIMANEER is a real-time smart agriculture dashboard monitoring soil moisture, air humidity, temperature, pH levels, water level, and air quality via Firebase Realtime Database.",
-  keywords: ["smart agriculture", "IoT", "sensor dashboard", "soil moisture", "CLIMANEER"],
+    "climaneer v2 is a real-time smart agriculture dashboard monitoring soil moisture, air humidity, temperature, pH levels, water level, and air quality via Socket.IO.",
+  keywords: ["smart agriculture", "IoT", "sensor dashboard", "soil moisture", "climaneer"],
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, title: "CLIMANEER", statusBarStyle: "default" },
+  icons: {
+    icon: "/favicon.png",
+    apple: "/favicon.png",
+  },
+  appleWebApp: { capable: true, title: "climaneer v2", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
@@ -25,6 +29,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="icon" href="/favicon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/favicon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

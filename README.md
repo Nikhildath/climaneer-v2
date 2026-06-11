@@ -1,26 +1,78 @@
-# CLIMANEER V2 — Smart Agriculture Dashboard
+<p align="center">
+  <img src="public/favicon.png" alt="CLIMANEER V2 Logo" width="120" height="120" />
+</p>
 
-**CLIMANEER V2** is a smart agriculture monitoring and control dashboard built with Next.js. It provides real-time sensor monitoring, pump control, AI-powered voice assistance, weather integration, and crop advisory — all with a mobile-friendly PWA interface.
+<h1 align="center">CLIMANEER V2</h1>
+<h3 align="center">Smart Agriculture Dashboard</h3>
 
-Created by **Nikhil Dath**.
+<p align="center">
+  Real-time sensor monitoring · AI voice assistant · Pump control · Mobile & Desktop
+</p>
+
+<p align="center">
+  Built with Next.js · Socket.IO · Capacitor<br/>
+  by <strong>Nikhil Dath</strong>
+</p>
+
+---
+
+## Overview
+
+**CLIMANEER V2** is a full-stack smart agriculture platform that monitors soil moisture, temperature, humidity, pH, water level, air quality, and flow rate in real time. It connects to an ESP32 sensor node via Socket.IO and provides AI-powered voice control, weather integration, crop advisory, and mobile/desktop apps via Capacitor and Electron.
 
 ---
 
 ## Features
 
-- Real-time sensor monitoring (soil moisture, temperature, humidity, pH, water level, air quality, flow rate, battery)
-- Pump control (on/off, timed runs, scheduled mode)
-- Three control modes: Automatic (Firebase), Manual, Scheduled
-- **CLIMA AI** — voice-powered AI assistant with natural language understanding
-- Weather integration (current conditions, 5-day forecast, rain alerts)
-- Plant & crop advisory (tips, watering advice, pest control, seasonal guidance, soil health)
-- Voice commands with AI intent parsing (Gemini / OpenRouter)
-- Analytics & charts (Recharts)
-- Data export (CSV / JSON)
-- Alert system with thresholds for all sensors
-- Push notifications & sound alerts
+- Real-time sensor monitoring via Socket.IO (ESP32)
+- Pump control — on/off, timed runs, AUTO/MANUAL/SCHEDULED modes
+- **CLIMA AI** — voice assistant with natural language understanding (Gemini / OpenRouter)
+- Weather integration — current conditions, 5-day forecast, rain alerts
+- Plant & crop advisory — tips, watering advice, pest control, soil health
+- Analytics & interactive charts (Recharts)
+- Alert system with configurable thresholds
 - Dark mode
-- PWA ready
+- PWA — install on mobile as a native app
+- Android APK & Windows EXE builds via GitHub Actions
+
+---
+
+## Architecture
+
+```
+climaneer/
+├── src/                    Next.js App Router frontend
+│   ├── app/                Pages + API routes
+│   ├── components/         UI components
+│   ├── context/            Global state (AppContext)
+│   ├── hooks/              Voice control, mobile detection
+│   ├── lib/                AI client, voice commands, env config
+│   ├── store/              Zustand stores
+│   └── shared/             Types & schemas
+├── server/                 Socket.IO backend (Express)
+│   ├── src/
+│   │   ├── index.js        Server entry, CORS, Socket.IO
+│   │   ├── config.js       Environment configuration
+│   │   ├── socket-handlers.js  All Socket.IO event handlers
+│   │   ├── database.js     SQLite persistence
+│   │   ├── override.js     Sensor override system
+│   │   └── ai.js           Server-side AI logic
+│   └── render.yaml         Render deploy config
+├── electron/               Desktop app wrapper (Windows EXE)
+├── ESP32_SocketIO.ino      ESP32 firmware
+├── public/                 Static assets, favicon, manifest
+└── .github/workflows/      CI/CD — APK & EXE builds
+```
+
+### Data Flow
+
+```
+ESP32 ──WebSocket (Socket.IO)──> Server ──broadcast──> Dashboard (Next.js)
+                                   │
+                              ┌────┴────┐
+                              │  SQLite  │
+                              └─────────┘
+```
 
 ---
 
@@ -28,122 +80,163 @@ Created by **Nikhil Dath**.
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - npm
 
 ### Install
 
 ```bash
 npm install
+cd server && npm install && cd ..
 ```
 
 ### Configure
 
-Copy `.env.local` and set your Firebase URL and optional AI API keys:
+Edit [`src/lib/env.ts`](src/lib/env.ts) to set your server URL and AI API keys:
 
-```
-NEXT_PUBLIC_FIREBASE_URL=https://your-project.firebasedatabase.app
-NEXT_PUBLIC_AI_PROVIDER=gemini       # or openrouter
-NEXT_PUBLIC_GEMINI_API_KEY=your_key
-NEXT_PUBLIC_OPENROUTER_API_KEY=your_key
+```ts
+// Socket.IO server (auto-switches dev/prod)
+export const SOCKET_URL = process.env.NODE_ENV === "development"
+  ? "http://localhost:3001"
+  : "https://your-server.onrender.com";
+
+// AI providers (optional)
+export const AI_PROVIDER = "";          // "gemini" | "openrouter"
+export const GEMINI_API_KEY = "";       // Your Gemini API key
+export const OPENROUTER_API_KEY = "";   // Your OpenRouter API key
 ```
 
-### Run
+### Run (development)
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Starts both the Next.js dashboard (`:3000`) and the Socket.IO server (`:3001`).
+
+### ESP32 Setup
+
+1. Open [`ESP32_SocketIO.ino`](ESP32_SocketIO.ino) in Arduino IDE
+2. Set your Wi-Fi credentials
+3. Set `HOST`, `PORT`, and `USE_SSL` for your server
+4. Flash to ESP32
 
 ---
 
 ## CLIMA AI Voice Assistant
 
-CLIMA is your farming companion — a voice-powered AI that understands natural language and can control the dashboard, answer questions, and give advice.
+CLIMA is a voice-powered AI that understands natural language commands.
 
-### AI Providers
+| Provider | How to enable |
+|----------|---------------|
+| **Gemini** | Set `GEMINI_API_KEY` in `src/lib/env.ts` |
+| **OpenRouter** | Set `OPENROUTER_API_KEY` in `src/lib/env.ts` |
 
-| Provider | Setup |
-|----------|-------|
-| **Gemini** (default) | Set `NEXT_PUBLIC_GEMINI_API_KEY` in `.env` |
-| **OpenRouter** | Set `NEXT_PUBLIC_OPENROUTER_API_KEY` in `.env` |
+Auto-fallback: if one provider fails, CLIMA tries the other.
 
-When one provider fails (e.g. rate limited), CLIMA automatically falls back to the other.
-
-### How to use
-
-1. Click the microphone button (green, left side)
-2. Speak naturally — e.g. "what's the soil moisture?", "turn on pump for 10 minutes", "will it rain today?"
-3. CLIMA responds aloud with the answer
-
-### Voice Categories
+### Voice command examples
 
 | Category | Examples |
 |----------|----------|
 | Sensor Readings | "soil moisture", "temperature", "full report" |
 | Pump Control | "turn on pump", "run pump for 5 minutes" |
 | System Modes | "auto mode", "manual mode" |
-| Weather | "what's the weather?", "will it rain?", "forecast" |
+| Weather | "what's the weather?", "will it rain?" |
 | Plant Advisory | "plant tips", "when to water", "pest control" |
 | Alerts | "show alerts", "clear alerts" |
 | Navigation | "go to analytics", "open settings" |
 | Settings | "set moisture threshold to 30", "dark mode on" |
-| System Info | "system status", "what time is it?" |
-| Help | "help", "what can you do?" |
 
 ---
 
-## Architecture
+## Deployment
 
+### Server (Render)
+
+The `server/` directory includes a [`render.yaml`](server/render.yaml). Deploy on Render.com:
+
+1. Create a new **Web Service** pointing to the `server/` directory
+2. Set environment variables in the Render dashboard:
+   - `CORS_ORIGIN` — your frontend URL(s), comma-separated
+3. Render auto-detects the start command from `render.yaml`
+
+### Frontend (Vercel)
+
+```bash
+npm run build  # produces .next/
 ```
-src/
-├── app/                  Next.js App Router (pages + API routes)
-│   └── api/              REST endpoints (sensors, alerts, settings, export)
-├── components/           UI components (shadcn/ui)
-├── context/              Global state (AppContext)
-├── hooks/                Voice control, toast, mobile detection
-├── lib/
-│   ├── ai-client.ts      AI provider (Gemini/OpenRouter), rate limiter, weather API
-│   ├── voice-commands.ts 129+ voice command definitions
-│   └── utils.ts          Utilities
-└── shared/schema.ts      Zod schemas & TypeScript types
-```
 
-### Data Flow
-
-- **Firebase Realtime Database** stores sensor readings and system controls
-- Polling every N seconds (configurable) fetches latest data
-- Voice commands route through either regex matching or AI intent parsing
-- AI responses are text-to-speech via Puter.js
+Deploy the repo root to Vercel — it auto-detects Next.js.
 
 ---
 
-## Configuration
+## Building APK & EXE
 
-Settings are persisted in `localStorage` and synced to Firebase. Key settings:
+Trigger the GitHub Actions workflow to build:
 
-| Setting | Description |
-|---------|-------------|
-| `controlMode` | automatic / manual / scheduled |
-| `moistureThreshold` | Alert when soil moisture below this % |
-| `temperatureUnit` | celsius / fahrenheit |
-| `aiMode` | Enable/disable AI voice parsing |
-| `aiProvider` | auto / gemini / openrouter / none |
-| `pollInterval` | Data refresh rate in ms |
+- **APK** — Android app via Capacitor
+- **EXE** — Windows desktop installer via Electron
+
+### Manual trigger
+
+```bash
+gh workflow run build-apk-exe.yml
+```
+
+Or push a version tag:
+
+```bash
+git tag v2.0.0 && git push origin v2.0.0
+```
+
+Artifacts are available in the workflow run page.
 
 ---
 
 ## Tech Stack
 
-- **Framework:** Next.js 14 (App Router)
-- **UI:** React 18, shadcn/ui, Tailwind CSS, Framer Motion
-- **Charts:** Recharts
-- **Data:** Firebase Realtime Database (REST)
-- **Mobile:** Capacitor (PWA + native TTS)
-- **AI:** Google Gemini / OpenRouter (OpenAI)
-- **Weather:** Open-Meteo (free, no API key)
-- **Voice:** Web Speech API + Puter.js TTS
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 14 (App Router), React 18, Tailwind CSS, shadcn/ui |
+| State | Zustand |
+| Charts | Recharts |
+| Backend | Express + Socket.IO |
+| Database | SQLite (via sql.js) |
+| Mobile | Capacitor (PWA + Android APK) |
+| Desktop | Electron (Windows EXE) |
+| AI | Google Gemini / OpenRouter |
+| Weather | Open-Meteo (free, no key) |
+| Voice | Web Speech API |
+| Hardware | ESP32 + DHT22, DS18B20, soil moisture, pH, ultrasonic, MQ-135, flow sensor |
+
+---
+
+## Project Structure
+
+### Frontend (`src/`)
+
+| Path | Purpose |
+|------|---------|
+| `src/lib/env.ts` | Central config — server URL, AI keys |
+| `src/lib/socket-client.ts` | Socket.IO client singleton |
+| `src/lib/ai-client.ts` | AI provider (Gemini / OpenRouter) |
+| `src/lib/voice-commands.ts` | 129+ voice command definitions |
+| `src/context/AppContext.tsx` | Global state provider |
+| `src/store/sensor-store.ts` | Zustand sensor state |
+| `src/hooks/use-voice-control.ts` | Voice control hook |
+| `src/components/` | Reusable UI components |
+| `src/app/` | Pages and API routes |
+
+### Server (`server/`)
+
+| Path | Purpose |
+|------|---------|
+| `server/src/index.js` | Express + Socket.IO server |
+| `server/src/config.js` | Config (reads env vars) |
+| `server/src/socket-handlers.js` | All Socket.IO event logic |
+| `server/src/database.js` | SQLite CRUD operations |
+| `server/src/override.js` | Sensor override computation |
+| `server/src/ai.js` | Server-side AI reasoning |
 
 ---
 

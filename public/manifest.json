@@ -1,17 +1,17 @@
 {
-  "name": "CLIMANEER Dashboard",
-  "short_name": "CLIMANEER",
-  "description": "Smart Agriculture Platform for intelligent water management and crop monitoring",
+  "name": "climaneer v2 Dashboard",
+  "short_name": "climaneer v2",
+  "description": "climaneer v2 - Smart Agriculture Platform for intelligent water management and crop monitoring",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#10b981",
+  "background_color": "#0a0a0f",
   "theme_color": "#10b981",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],

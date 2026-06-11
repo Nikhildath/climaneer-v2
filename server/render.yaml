@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: climaneer-server
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: CORS_ORIGIN
+        value: https://your-dashboard.vercel.app
+      - key: WS_PING_INTERVAL
+        value: "25000"
+      - key: WS_PING_TIMEOUT
+        value: "10000"
+      - key: DATA_RETENTION_DAYS
+        value: "90"

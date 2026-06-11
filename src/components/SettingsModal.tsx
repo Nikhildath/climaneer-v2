@@ -57,6 +57,21 @@ export function SettingsModal({ open, onOpenChange, settings, onSave }: Settings
     return settings;
   });
 
+  // Reset localSettings from parent settings when modal opens
+  useEffect(() => {
+    if (open) {
+      setLocalSettings({
+        ...settings,
+        scheduledSettings: settings.scheduledSettings || {
+          enabled: false,
+          startTime: "08:00",
+          endTime: "18:00",
+          durationMinutes: 30,
+        },
+      });
+    }
+  }, [open, settings]);
+
   const [geminiModels, setGeminiModels] = useState<string[]>([]);
   const [openRouterModels, setOpenRouterModels] = useState<{ id: string; name: string }[]>([]);
   const [geminiLoading, setGeminiLoading] = useState(false);
@@ -109,7 +124,15 @@ export function SettingsModal({ open, onOpenChange, settings, onSave }: Settings
   }, [showOpenRouter]);
 
   const handleSave = () => {
-    onSave(localSettings);
+    // Merge localSettings with the current parent settings to ensure nothing is lost
+    const fullSettings = { ...settings, ...localSettings };
+    // Direct localStorage save (guarantees keys persist regardless of parent state flow)
+    try {
+      localStorage.setItem("climaSettings", JSON.stringify(fullSettings));
+    } catch (e) {
+      console.warn("[Settings] Failed to save to localStorage:", e);
+    }
+    onSave(fullSettings);
     onOpenChange(false);
   };
 
@@ -133,7 +156,7 @@ export function SettingsModal({ open, onOpenChange, settings, onSave }: Settings
         <DialogHeader>
           <DialogTitle className="text-xl sm:text-2xl">Settings</DialogTitle>
           <DialogDescription>
-            Configure your CLIMANEER dashboard preferences
+            Configure your climaneer v2 dashboard preferences
           </DialogDescription>
         </DialogHeader>
 
@@ -319,12 +342,12 @@ export function SettingsModal({ open, onOpenChange, settings, onSave }: Settings
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 data-testid="select-control-mode"
               >
-                <option value="automatic">Automatic (Firebase-controlled)</option>
+                <option value="automatic">Automatic (AI-controlled)</option>
                 <option value="manual">Manual (On/Off)</option>
                 <option value="scheduled">Scheduled (Time-based)</option>
               </select>
               <p className="text-xs text-muted-foreground">
-                {localSettings.controlMode === "automatic" ? "Firebase controls pump automatically" : 
+                {localSettings.controlMode === "automatic" ? "Server AI controls pump automatically" : 
                  localSettings.controlMode === "manual" ? "You control pump manually" :
                  "Pump runs on schedule"}
               </p>
@@ -616,28 +639,6 @@ export function SettingsModal({ open, onOpenChange, settings, onSave }: Settings
                 }
                 data-testid="input-poll-interval"
               />
-            </div>
-          </section>
-
-          {/* Firebase URL Section */}
-          <section className="space-y-4">
-            <h3 className="text-lg font-semibold">Firebase Configuration</h3>
-            <Separator />
-            <div className="space-y-2">
-              <Label htmlFor="firebase-url">Realtime Database URL</Label>
-              <Input
-                id="firebase-url"
-                type="url"
-                value={(localSettings as any).firebaseUrl ?? ""}
-                onChange={(e) => 
-                  setLocalSettings({ ...localSettings, firebaseUrl: e.target.value } as any)
-                }
-                placeholder="https://your-project-default-rtdb.region.firebasedatabase.app"
-                data-testid="input-firebase-url"
-              />
-              <p className="text-xs text-muted-foreground">
-                Leave empty to use the default URL from environment variable.
-              </p>
             </div>
           </section>
         </div>

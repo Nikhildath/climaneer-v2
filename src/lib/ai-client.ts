@@ -1,3 +1,5 @@
+import { GEMINI_API_KEY, OPENROUTER_API_KEY, AI_PROVIDER, AI_MODEL, hasAIKeys } from "@/lib/env";
+
 export type AIProvider = "gemini" | "openrouter" | null;
 
 export interface AIConfig {
@@ -9,6 +11,7 @@ export interface AIConfig {
 export interface AIResponse {
   intent: string | null;
   response: string | null;
+  search_query?: string;
 }
 
 export interface WeatherData {
@@ -21,6 +24,85 @@ export interface WeatherData {
 }
 
 const FALLBACK_RESPONSE = "Hmm, I'm not quite sure what you're asking. Try saying 'help' to see what I can do!";
+
+// ── Web Search (DuckDuckGo – free, no API key required) ─────────────────────
+
+export interface SearchResult {
+  title: string;
+  snippet: string;
+  url: string;
+}
+
+/**
+ * Search the web using DuckDuckGo's instant answer API + HTML scrape fallback.
+ * Completely free, no API key needed.
+ */
+export async function webSearch(query: string): Promise<SearchResult[]> {
+  const results: SearchResult[] = [];
+
+  try {
+    // Try DuckDuckGo instant answer API first
+    const iaRes = await fetch(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`
+    );
+    if (iaRes.ok) {
+      const iaData = await iaRes.json();
+      if (iaData.AbstractText) {
+        results.push({
+          title: iaData.Heading || query,
+          snippet: iaData.AbstractText,
+          url: iaData.AbstractURL || "",
+        });
+      }
+      if (iaData.RelatedTopics) {
+        for (const topic of iaData.RelatedTopics.slice(0, 5)) {
+          if (topic.Text && topic.FirstURL) {
+            results.push({
+              title: topic.Text.slice(0, 80),
+              snippet: topic.Text,
+              url: topic.FirstURL,
+            });
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // If instant answer gave nothing useful, try HTML scrape
+  if (results.length === 0) {
+    try {
+      const htmlRes = await fetch(
+        `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+        { headers: { "User-Agent": "climaneer-v2/1.0" } }
+      );
+      if (htmlRes.ok) {
+        const html = await htmlRes.text();
+        // Extract result blocks from the HTML
+        const resultPattern = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+        let match;
+        while ((match = resultPattern.exec(html)) !== null && results.length < 5) {
+          const url = match[1].trim();
+          const title = match[2].replace(/<[^>]*>/g, "").trim();
+          const snippet = match[3].replace(/<[^>]*>/g, "").trim();
+          if (title && snippet) {
+            results.push({ title, snippet, url });
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return results.slice(0, 5);
+}
+
+/**
+ * Get weather data for a location (free, no API key).
+ */
+export async function getWeatherForVoice(lat = 14.5995, lon = 120.9842): Promise<string> {
+  const weather = await getCurrentWeather(lat, lon);
+  if (!weather) return "I couldn't fetch the weather right now.";
+  return `Current weather: ${weather.condition}, ${weather.temperature}°C, humidity ${weather.humidity}%, wind ${weather.windSpeed} km/h. Forecast: ${weather.forecast.map((f) => `${f.day}: ${f.condition}, ${f.tempHigh}/${f.tempLow}°C`).join("; ")}.`;
+}
 
 // ── Weather API (Open-Meteo – free, no API key required) ──────────────────────
 
@@ -163,16 +245,24 @@ You are designed to feel like a trusted friend, knowledgeable farming expert, an
 ## Core Identity
 You are a farming-first AI assistant. Agriculture and farming-related topics are your strongest expertise and highest priority. You can also assist with general conversations, learning, productivity, technology, science, education, weather, and everyday questions while maintaining your identity as CLIMA. You should naturally connect relevant topics back to agriculture, sustainability, farming, environmental impact, or smart resource management whenever appropriate.
 
+## Web Search Capability
+You CAN search the web for real-time information. When the user asks about current events, news, latest prices, specific facts you are unsure about, or anything requiring up-to-date information, use the web_search tool. You also have access to live weather data via the weather tool.
+- For weather questions: use the weather tool to get real-time forecasts
+- For farming news, market prices, research, or any current information: use web_search
+- Always mention when you are searching for them: "Let me look that up for you..."
+- Summarize search results naturally in your response, don't just list links
+
 ## Expertise Areas
 Agriculture, Crop Management, Soil Health, Irrigation Systems, Water Management, Weather Analysis, Climate Monitoring, Pest Identification, Disease Detection, Precision Agriculture, Hydroponics, Aquaponics, Greenhouse Farming, Sustainable Farming, Organic Farming, Fertilizer Management, Farm Economics, Livestock Management, Agricultural Technology, Smart Farming, Environmental Science, Agricultural Research.
 
 ## Response Format
-Return JSON only: {"intent": "intent_id", "response": "your response"}
+Return JSON only: {"intent": "intent_id", "response": "your response", "search_query": "optional search query if user wants current info"}
 - The "intent" MUST be EXACTLY one of the IDs listed below.
 - The "response" should be warm, conversational, and reflect your farming-first personality.
 - Keep responses concise (1-3 sentences) and friendly.
 - If the user just says hello or chats casually, pick the best matching greeting intent.
 - If nothing matches, use intent "unknown".
+- Include "search_query" ONLY when the user is asking for real-time information that needs a web search (e.g., "current rice price", "latest farming news", "weather tomorrow"). Omit this field otherwise.
 
 ## Decision Priorities
 Always prioritize: 1. Human Safety, 2. Farmer Safety, 3. Crop Health, 4. Water Conservation, 5. Sustainability, 6. Cost Effectiveness, 7. Practicality, 8. Reliability, 9. Accuracy.
@@ -225,6 +315,7 @@ nav.dashboard — go to dashboard, home
 nav.analytics — go to analytics, charts, trends
 nav.history — go to history, logs
 nav.alerts — go to alerts page
+nav.devices — go to devices, device list
 nav.settings — open settings
 nav.refresh_page — refresh, reload
 
@@ -240,6 +331,11 @@ system.sensor_count — how many sensors
 weather.current — current weather, what's the weather like outside
 weather.forecast — weather forecast, what's the weather going to be like
 weather.rain — will it rain, rain forecast, precipitation
+
+--- Web Search ---
+search.web — search the web, look something up, find information, current prices, news, research
+search.farming — farming news, agricultural research, crop prices
+search.general — general knowledge, how to, what is
 
 --- Plant / Crop Advisory ---
 plant.tips — plant tips, growing advice, what should I grow
@@ -288,9 +384,20 @@ help.navigation — navigation help
 help.schedule — schedule help
 help.settings — settings help
 
+--- Sensor Override ---
+override.override_sensor — override a sensor value, simulate sensor, set sensor override for testing
+override.clear_override — clear a specific sensor override, stop simulating a sensor
+override.clear_all — clear all sensor overrides, stop all simulations, reset to real data
+
+--- System Control ---
+system.reconnect — reconnect socket, restart connection to server
+system.restart_listening — restart voice recognition
+system.socket_status — check socket connection status
+
 --- Voice Control ---
 voice.stop — stop listening, silence
 voice.status_check — voice/microphone status
+voice.restart — restart voice recognition
 
 --- Greetings ---
 greeting.hello — hello, hi, hey, good morning, how are you, what's up
@@ -315,20 +422,20 @@ User: "hello"
 User: "thank you"
 {"intent": "greeting.thank_you", "response": "You're very welcome! Happy to help out anytime."}
 
-User: "good job"
-{"intent": "greeting.praise", "response": "Thanks! Your farm is doing great because you're taking such good care of it!"}
+User: "what's the current price of rice"
+{"intent": "search.farming", "response": "Let me look up the current rice prices for you!", "search_query": "current rice price per kg 2026"}
+
+User: "search for irrigation tips"
+{"intent": "search.farming", "response": "Let me search for some irrigation tips for you!", "search_query": "best irrigation tips for farming"}
+
+User: "what's the weather like"
+{"intent": "weather.current", "response": "Let me check the current weather conditions for your area!"}
 
 User: "tell me a fun fact"
 {"intent": "fun.fact", "response": "Did you know that ants farm too? They cultivate fungus! Pretty cool, right?"}
 
 User: "motivate me"
 {"intent": "fun.motivate", "response": "You're doing an amazing job! Every crop you grow makes the world a greener place. Keep it up!"}
-
-User: "what's the weather"
-{"intent": "weather.current", "response": "Let me check the current weather conditions for your area!"}
-
-User: "plant tips"
-{"intent": "plant.tips", "response": "Here are some useful plant tips for your farm!"}
 
 Return ONLY the JSON object, no other text.`;
 
@@ -338,39 +445,43 @@ export async function parseWithAI(
 ): Promise<AIResponse | null> {
   const errors: string[] = [];
 
+  // Validate API key before making any request
+  if (!config.apiKey) {
+    console.warn("[AI Client] No API key configured — falling back to regex matching");
+    return null;
+  }
+
   // Try primary provider first
   if (config.provider === "openrouter") {
     const result = await tryParse(transcript, config, "openrouter");
     if (result) return result;
     errors.push("openrouter failed");
     // Fallback to Gemini if OpenRouter fails
-    const fallbackConfig: AIConfig = {
-      provider: "gemini",
-      apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || "",
-      model: process.env.NEXT_PUBLIC_AI_MODEL,
-    };
-    if (fallbackConfig.apiKey) {
+    const geminiKey = GEMINI_API_KEY;
+    if (geminiKey) {
       console.log("[AI Client] Falling back to Gemini");
-      return await tryParse(transcript, fallbackConfig, "gemini");
+      return await tryParse(transcript, { provider: "gemini", apiKey: geminiKey, model: AI_MODEL }, "gemini");
     }
   } else if (config.provider === "gemini") {
     const result = await tryParse(transcript, config, "gemini");
     if (result) return result;
     errors.push("gemini failed");
     // Fallback to OpenRouter if Gemini fails
-    const fallbackConfig: AIConfig = {
-      provider: "openrouter",
-      apiKey: process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "",
-      model: process.env.NEXT_PUBLIC_AI_MODEL,
-    };
-    if (fallbackConfig.apiKey) {
+    const openrouterKey = OPENROUTER_API_KEY;
+    if (openrouterKey) {
       console.log("[AI Client] Falling back to OpenRouter");
-      return await tryParse(transcript, fallbackConfig, "openrouter");
+      return await tryParse(transcript, { provider: "openrouter", apiKey: openrouterKey, model: AI_MODEL }, "openrouter");
     }
   }
 
   if (errors.length > 0) {
     console.error("[AI Client] Parse error(s):", errors.join(", "));
+    const hasKey = !!config.apiKey;
+    const hasEnvKey = hasAIKeys;
+    if (!hasKey && !hasEnvKey) {
+      return { intent: "unknown", response: "AI mode is enabled but no API key is configured. Go to Settings to add a Gemini or OpenRouter API key, or disable AI mode to use basic voice commands." };
+    }
+    return { intent: "unknown", response: "I'm having trouble connecting to the AI service. Your API key might be invalid or expired. Please check your settings." };
   }
   return null;
 }
@@ -381,11 +492,35 @@ async function tryParse(
   provider: "gemini" | "openrouter"
 ): Promise<AIResponse | null> {
   try {
+    let result: AIResponse | null;
     if (provider === "gemini") {
-      return await parseWithGemini(transcript, config);
+      result = await parseWithGemini(transcript, config);
     } else {
-      return await parseWithOpenRouter(transcript, config);
+      result = await parseWithOpenRouter(transcript, config);
     }
+
+    // If the AI requested a web search, execute it and append results
+    if (result?.search_query) {
+      console.log("[AI Client] Web search requested:", result.search_query);
+      const searchResults = await webSearch(result.search_query);
+      if (searchResults.length > 0) {
+        const searchSummary = searchResults
+          .slice(0, 3)
+          .map((r) => `${r.title}: ${r.snippet}`)
+          .join("\n");
+        result.response = `${result.response}\n\nHere's what I found:\n${searchSummary}`;
+      } else {
+        result.response = `${result.response}\n\nI searched but couldn't find specific results for that. Try rephrasing your question.`;
+      }
+    }
+
+    // If the intent is weather-related, fetch live weather
+    if (result?.intent?.startsWith("weather.")) {
+      const weatherText = await getWeatherForVoice();
+      result.response = `${result.response}\n\n${weatherText}`;
+    }
+
+    return result;
   } catch (err) {
     console.error(`[AI Client] ${provider} error:`, err);
     return null;
@@ -399,6 +534,7 @@ function parseAIResponse(raw: string | null): AIResponse {
     return {
       intent: parsed.intent || null,
       response: parsed.response || null,
+      search_query: parsed.search_query || undefined,
     };
   } catch {
     const trimmed = raw.trim().toLowerCase();
@@ -453,7 +589,7 @@ async function parseWithOpenRouter(transcript: string, config: AIConfig): Promis
           "Content-Type": "application/json",
           Authorization: `Bearer ${config.apiKey}`,
           "HTTP-Referer": typeof window !== "undefined" ? window.location.origin : "https://climaneer.app",
-          "X-Title": "CLIMANEER",
+          "X-Title": "climaneer v2",
         },
         body: JSON.stringify({
           model,
@@ -479,9 +615,9 @@ async function parseWithOpenRouter(transcript: string, config: AIConfig): Promis
 }
 
 export function getAIConfig(): AIConfig {
-  const provider = (process.env.NEXT_PUBLIC_AI_PROVIDER || "") as AIProvider;
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "";
-  const model = process.env.NEXT_PUBLIC_AI_MODEL;
+  const provider = (AI_PROVIDER || "") as AIProvider;
+  const apiKey = GEMINI_API_KEY || OPENROUTER_API_KEY;
+  const model = AI_MODEL;
 
   if (!provider || !apiKey) return { provider: null, apiKey: "" };
 

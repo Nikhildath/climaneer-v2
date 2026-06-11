@@ -1,58 +1,43 @@
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+function Shimmer({ className }: { className?: string }) {
+  return <div className={cn("shimmer rounded-lg", className)} />;
+}
 
 export function SensorCardSkeleton() {
   return (
-    <Card className="p-6 space-y-4 animate-pulse">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div className="h-10 w-10 rounded-lg bg-muted" />
-          <div className="h-4 w-24 bg-muted rounded" />
-        </div>
-        <div className="h-4 w-4 bg-muted rounded" />
+    <div className="panel rounded-lg px-4 py-3.5 space-y-3">
+      <div className="flex items-center gap-2">
+        <Shimmer className="h-7 w-7 rounded-lg" />
+        <Shimmer className="h-3 w-20" />
       </div>
-      <div className="space-y-2">
-        <div className="h-10 w-32 bg-muted rounded" />
-        <div className="h-4 w-20 bg-muted rounded" />
-      </div>
-      <div className="h-20 w-full bg-muted rounded" />
-    </Card>
+      <Shimmer className="h-7 w-24" />
+      <Shimmer className="h-16 w-full" />
+    </div>
   );
 }
 
 export function StatusCardSkeleton() {
   return (
-    <Card className="p-6 animate-pulse">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-muted" />
-            <div className="h-4 w-24 bg-muted rounded" />
-          </div>
-          <div className="h-8 w-20 bg-muted rounded" />
-          <div className="h-3 w-32 bg-muted rounded" />
-        </div>
-        <div className="h-14 w-14 rounded-lg bg-muted" />
+    <div className="panel rounded-lg px-4 py-3.5 space-y-2">
+      <div className="flex items-center gap-1.5">
+        <Shimmer className="h-1.5 w-1.5 rounded-full" />
+        <Shimmer className="h-3 w-16" />
       </div>
-    </Card>
+      <Shimmer className="h-6 w-20" />
+      <Shimmer className="h-3 w-28" />
+    </div>
   );
 }
 
 export function DashboardSkeleton() {
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <StatusCardSkeleton key={i} />
-        ))}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-4 animate-pulse">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => <StatusCardSkeleton key={i} />)}
       </div>
-
-      {/* Sensor Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <SensorCardSkeleton key={i} />
-        ))}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        {Array.from({ length: 8 }).map((_, i) => <SensorCardSkeleton key={i} />)}
       </div>
     </div>
   );
@@ -60,9 +45,9 @@ export function DashboardSkeleton() {
 
 export function ChartSkeleton({ className }: { className?: string }) {
   return (
-    <Card className={cn("p-6 space-y-4 animate-pulse", className)}>
-      <div className="h-6 w-32 bg-muted rounded" />
-      <div className="h-64 w-full bg-muted rounded" />
-    </Card>
+    <div className={cn("panel rounded-lg p-5 space-y-4", className)}>
+      <Shimmer className="h-5 w-28" />
+      <Shimmer className="h-60 w-full" />
+    </div>
   );
 }

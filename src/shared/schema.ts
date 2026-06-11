@@ -35,7 +35,7 @@ export const systemStatusSchema = z.object({
   uptime: z.number(),
   pumpStatus: z.enum(["running", "stopped", "error"]),
   pumpRuntime: z.number(),
-  controlMode: z.enum(["automatic", "manual"]),
+  controlMode: z.enum(["automatic", "manual", "scheduled"]),
   networkSignal: z.enum(["strong", "medium", "weak"]),
   dataUsage: z.number(),
 });
@@ -91,7 +91,6 @@ export type Settings = {
   openrouterApiKey?: string;
   geminiModel?: string;
   openrouterModel?: string;
-  firebaseUrl?: string;
 };
 
 export const insertSettingsSchema = z.object({

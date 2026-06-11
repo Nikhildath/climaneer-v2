@@ -1,6 +1,7 @@
-import { Button } from "@/components/ui/button";
-import { Download, RefreshCw, Settings, Zap } from "lucide-react";
+"use client";
+import { Download, RefreshCw, Settings, Zap, Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface QuickActionsProps {
   onExport: () => void;
@@ -14,113 +15,74 @@ interface QuickActionsProps {
   className?: string;
 }
 
-export function QuickActions({ onExport, onRefresh, onSettings, pumpOn = false, onTogglePump, onAutoMode, onManualMode, currentMode = "automatic", className }: QuickActionsProps) {
+export function QuickActions({
+  onExport, onRefresh, onSettings, pumpOn = false, onTogglePump,
+  onAutoMode, onManualMode, currentMode = "automatic", className,
+}: QuickActionsProps) {
   return (
-    <div className={cn("fixed right-4 sm:right-8 lg:right-12 bottom-20 sm:bottom-6 z-40 flex flex-col gap-2 sm:gap-3 safe-bottom", className)}>
-      <Button
-        size="icon"
-        variant="outline"
-        className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 bg-card border-2"
-        onClick={onExport}
-        data-testid="quick-action-export"
-        title="Export Data"
-      >
-        <Download className="h-4 w-4 sm:h-5 sm:w-5" />
-      </Button>
-      
-      <Button
-        size="icon"
-        variant="outline"
-        className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 bg-card border-2"
-        onClick={onRefresh}
-        data-testid="quick-action-refresh"
-        title="Refresh Data"
-      >
-        <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5" />
-      </Button>
-      
-      <Button
-        size="icon"
-        variant="outline"
-        className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 bg-card border-2"
-        onClick={onSettings}
-        data-testid="quick-action-settings"
-        title="Settings"
-      >
-        <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-      </Button>
-      
-      <div className="h-px w-full bg-border my-0.5 sm:my-1" />
-      
-      {/* Auto Mode Toggle */}
-      <Button
-        size="icon"
-        variant="ghost"
-        className={cn(
-          "h-9 w-9 sm:h-10 sm:w-10 rounded-full shadow-lg transition-all hover:-translate-y-1 text-white",
-          currentMode === "automatic" 
-            ? "bg-gradient-to-br from-emerald-500 to-cyan-500 shadow-glow-emerald hover:shadow-glow-lg" 
-            : "bg-card border-2 hover:border-emerald-500/50"
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
+      className={cn(
+        "fixed right-4 sm:right-6 bottom-20 sm:bottom-6 z-40 safe-bottom",
+        className
+      )}
+    >
+      <div className="flex flex-col gap-1.5 p-1.5 rounded-xl bg-card/80 backdrop-blur-2xl border border-border/40 shadow-lg">
+        <ActionButton icon={Download} onClick={onExport} title="Export" />
+        <ActionButton icon={RefreshCw} onClick={onRefresh} title="Refresh" />
+        <ActionButton icon={Settings} onClick={onSettings} title="Settings" />
+        <div className="h-px bg-border/40 mx-1" />
+        <ActionButton
+          icon={Zap}
+          onClick={async () => { if (onAutoMode) await onAutoMode(); }}
+          title="Auto"
+          active={currentMode === "automatic"}
+        />
+        {typeof onManualMode === "function" && (
+          <ActionButton
+            icon={Droplets}
+            onClick={async () => { if (onManualMode) await onManualMode(); }}
+            title="Manual"
+            active={currentMode === "manual"}
+          />
         )}
-        onClick={async () => { 
-          console.log("[Auto Mode Button] Clicked, currentMode:", currentMode, "onAutoMode:", typeof onAutoMode);
-          if (onAutoMode) {
-            try {
-              await onAutoMode();
-              console.log("[Auto Mode Button] Success!");
-            } catch (err) {
-              console.error("[Auto Mode Button] Error:", err);
-            }
-          }
-        }}
-        data-testid="quick-action-auto-mode"
-        title={currentMode === "automatic" ? "Auto Mode Active" : "Switch to Auto Mode"}
-      >
-        <Zap className="h-5 w-5 sm:h-6 sm:w-6" />
-      </Button>
+        {typeof onTogglePump === "function" && (
+          <ActionButton
+            icon={Zap}
+            onClick={async () => { if (onTogglePump) await onTogglePump(!pumpOn); }}
+            title={pumpOn ? "Pump ON" : "Pump OFF"}
+            active={pumpOn}
+          />
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
-      {/* Manual Mode Toggle */}
-      {typeof onManualMode === "function" && (
-        <Button
-          size="icon"
-          variant="ghost"
-          className={cn(
-            "h-9 w-9 sm:h-10 sm:w-10 rounded-full shadow-lg transition-all hover:-translate-y-1 text-white",
-            currentMode === "manual" 
-              ? "bg-gradient-to-br from-blue-500 to-purple-500 shadow-glow-blue hover:shadow-glow-lg" 
-              : "bg-card border-2 hover:border-blue-500/50"
-          )}
-          onClick={async () => { 
-            console.log("[Manual Mode Button] Clicked, currentMode:", currentMode, "onManualMode:", typeof onManualMode);
-            if (onManualMode) {
-              try {
-                await onManualMode();
-                console.log("[Manual Mode Button] Success!");
-              } catch (err) {
-                console.error("[Manual Mode Button] Error:", err);
-              }
-            }
-          }}
-          data-testid="quick-action-manual-mode"
-          title={currentMode === "manual" ? "Manual Mode Active" : "Switch to Manual Mode"}
-        >
-          <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
-        </Button>
+function ActionButton({
+  icon: Icon, onClick, title, active,
+}: {
+  icon: any;
+  onClick: () => void;
+  title: string;
+  active?: boolean;
+}) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.9 }}
+      className={cn(
+        "h-8 w-8 sm:h-9 sm:w-9 rounded-lg flex items-center justify-center transition-all duration-150",
+        active
+          ? "bg-foreground text-background"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
       )}
-
-      {/* Pump Toggle Button */}
-      {typeof onTogglePump === "function" && (
-        <Button
-          size="icon"
-          variant={pumpOn ? undefined : "secondary"}
-          onClick={async () => { if (onTogglePump) await onTogglePump(!pumpOn); }}
-          className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shadow-lg transition-all hover:-translate-y-1 bg-card border-2"
-          data-testid="quick-action-pump-toggle"
-          title={pumpOn ? "Turn pump off" : "Turn pump on"}
-        >
-          <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
-        </Button>
-      )}
-    </div>
+      title={title}
+    >
+      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+    </motion.button>
   );
 }

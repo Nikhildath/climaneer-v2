@@ -12,6 +12,8 @@ import { useVoiceControl } from "@/hooks/use-voice-control";
 import { Toaster } from "@/components/ui/toaster";
 import { DashboardSkeleton } from "@/components/LoadingSkeleton";
 import { formatTemp } from "@/lib/format-temp";
+import { emitSocket } from "@/lib/socket-client";
+import { useSensorStore } from "@/store/sensor-store";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const {
@@ -56,6 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return settings.controlMode || "automatic";
   };
 
+  const store = useSensorStore();
   const { listening, transcript, aiMode, voiceVersion } = useVoiceControl({
     aiMode: (settings as any).aiMode ?? true,
     aiProvider: (settings as any).aiProvider ?? "auto",
@@ -90,9 +93,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     getAIRecommendation: () => aiRecommendation || "",
     getActiveAlerts: getActiveAlertsText,
     getControlMode: getControlModeText,
+    emitSocket: (event, data) => emitSocket(event, data),
+    getSettings: () => ({ ...settings }),
+    onSensorOverride: (sensorKey, value, enabled) => {
+      const deviceId = store.deviceId;
+      if (deviceId) {
+        emitSocket("override_sensor", { device_id: deviceId, sensor_key: sensorKey, value, enabled });
+      }
+    },
     onSettingsSave: (key, value) => {
       if (key === "_openSettings") { setSettingsOpen(true); return; }
+      if (key.startsWith("scheduledSettings.")) {
+        const subKey = key.split(".")[1];
+        handleSettingsSave({
+          ...settings,
+          scheduledSettings: { ...(settings.scheduledSettings || { enabled: false, startTime: "08:00", endTime: "18:00", durationMinutes: 30 }), [subKey]: value },
+        });
+        return;
+      }
       handleSettingsSave({ ...settings, [key]: value });
+    },
+    onSettingsSaveAll: (newSettings) => {
+      handleSettingsSave({ ...settings, ...newSettings });
     },
     onAlertDismiss: (id) => {
       if (id) { handleAlertDismiss(id); return; }
@@ -122,7 +144,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {!isOnline && <OfflineIndicator />}
       <Header onSettingsClick={() => setSettingsOpen(true)} onRefresh={handleRefresh} isOnline={isOnline} />
       <NavigationTabs activeTab={activeTab} onTabChange={handleTabChange} alertCount={unreadAlertCount} />
-      <main className="min-h-[calc(100vh-8rem)] pb-20 sm:pb-0">
+      <main className="min-h-[calc(100vh-8rem)] pb-16 sm:pb-0 animate-fade-in" key={pathname}>
         {children}
       </main>
       {pathname === "/" && (

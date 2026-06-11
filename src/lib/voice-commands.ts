@@ -1,4 +1,4 @@
-import { getCurrentWeather } from "./ai-client";
+import { getCurrentWeather, webSearch } from "./ai-client";
 
 export interface CommandContext {
   getSensorValue: (key: string) => string;
@@ -13,12 +13,16 @@ export interface CommandContext {
   getControlMode: () => string;
   speak: (text: string) => void;
   onSettingsSave?: (key: string, value: any) => void;
+  onSettingsSaveAll?: (settings: Record<string, any>) => void;
   onAlertDismiss?: (id?: string) => void;
   onClearAlerts?: () => void;
   onExport?: () => void;
   onRefresh?: () => void;
   onStopListening?: () => void;
   onStopPumpTimer?: () => void;
+  emitSocket?: (event: string, data?: any) => boolean;
+  getSettings?: () => Record<string, any>;
+  onSensorOverride?: (sensorKey: string, value: number, enabled: boolean) => void;
 }
 
 let pumpTimerId: ReturnType<typeof setTimeout> | null = null;
@@ -47,7 +51,9 @@ export type CommandCategory =
   | "voice-control"
   | "export"
   | "weather"
-  | "plant";
+  | "plant"
+  | "override"
+  | "search";
 
 export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; icon: string }> = {
   greeting: { label: "Greetings", icon: "👋" },
@@ -64,6 +70,8 @@ export const COMMAND_CATEGORIES: Record<CommandCategory, { label: string; icon: 
   export: { label: "Export", icon: "📥" },
   weather: { label: "Weather", icon: "🌤️" },
   plant: { label: "Plant Advisory", icon: "🌱" },
+  override: { label: "Sensor Override", icon: "🔧" },
+  search: { label: "Web Search", icon: "🔍" },
 };
 
 const sensorNames = [
@@ -461,6 +469,19 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       execute: () => {
         ctx.speak("Opening the alerts page.");
         ctx.navigate("/alerts");
+        return true;
+      },
+    },
+    {
+      id: "nav.devices",
+      category: "navigation",
+      priority: 15,
+      patterns: [/(go to|open|show|navigate to) (the )?(devices|device|my devices|hardware)/i],
+      description: "Go to devices page",
+      examples: ["Show devices", "Open devices page"],
+      execute: () => {
+        ctx.speak("Opening the devices page.");
+        ctx.navigate("/devices");
         return true;
       },
     },
@@ -895,7 +916,7 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       description: "Explain automatic mode",
       examples: ["What is automatic mode?"],
       execute: () => {
-        ctx.speak("In automatic mode, the system controls the pump based on sensor data and Firebase logic. It adjusts watering based on soil moisture, temperature, and other factors automatically.");
+        ctx.speak("In automatic mode, the system controls the pump based on sensor data and AI logic. It adjusts watering based on soil moisture, temperature, and other factors automatically.");
         return true;
       },
     },
@@ -1147,7 +1168,7 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       description: "Check when sensors were last updated",
       examples: ["When was the last update?"],
       execute: () => {
-        ctx.speak("Sensor data is updated every few seconds from Firebase.");
+        ctx.speak("Sensor data is updated in real time from the server.");
         return true;
       },
     },
@@ -1159,7 +1180,7 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       description: "Get system version",
       examples: ["System version"],
       execute: () => {
-        ctx.speak("This is CLIMANEER Smart Agriculture Dashboard version 1.0.");
+        ctx.speak("This is climaneer v2 Smart Agriculture Dashboard.");
         return true;
       },
     },
@@ -1168,10 +1189,10 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       category: "system",
       priority: 10,
       patterns: [/(what is this|about|about this|what is climaneer)/i],
-      description: "About CLIMANEER",
+      description: "About climaneer v2",
       examples: ["What is this?"],
       execute: () => {
-        ctx.speak("This is CLIMANEER, your smart agriculture dashboard. It monitors soil moisture, temperature, humidity, water levels, and more. You can control the pump, view analytics, and manage your farm using voice commands.");
+        ctx.speak("This is climaneer v2, your smart agriculture dashboard. It monitors soil moisture, temperature, humidity, water levels, and more. You can control the pump, view analytics, and manage your farm using voice commands.");
         return true;
       },
     },
@@ -1377,9 +1398,15 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       patterns: [/(set|change|update) schedule (start|begin) (time )?(to )?(\d{1,2})(:(\d{2}))?\s*(am|pm)?/i],
       description: "Set schedule start time",
       examples: ["Set schedule start to 8 AM"],
-      execute: () => {
-        ctx.speak("Schedule start time can be configured in the settings panel.");
-        ctx.onSettingsSave?.("_openSettings", true);
+      execute: (_ctx, match) => {
+        let hours = parseInt(match.match(/(\d{1,2})/)?.[0] || "8");
+        const minutes = match.match(/:(\d{2})/)?.[1] || "00";
+        const ampm = match.match(/(am|pm)/i)?.[0]?.toLowerCase();
+        if (ampm === "pm" && hours < 12) hours += 12;
+        if (ampm === "am" && hours === 12) hours = 0;
+        const time = `${String(hours).padStart(2, "0")}:${minutes}`;
+        ctx.speak(`Setting schedule start time to ${time}.`);
+        ctx.onSettingsSave?.("scheduledSettings.startTime", time);
         return true;
       },
     },
@@ -1390,9 +1417,15 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       patterns: [/(set|change|update) schedule end (time )?(to )?(\d{1,2})(:(\d{2}))?\s*(am|pm)?/i],
       description: "Set schedule end time",
       examples: ["Set schedule end to 6 PM"],
-      execute: () => {
-        ctx.speak("Schedule end time can be configured in the settings panel.");
-        ctx.onSettingsSave?.("_openSettings", true);
+      execute: (_ctx, match) => {
+        let hours = parseInt(match.match(/(\d{1,2})/)?.[0] || "18");
+        const minutes = match.match(/:(\d{2})/)?.[1] || "00";
+        const ampm = match.match(/(am|pm)/i)?.[0]?.toLowerCase();
+        if (ampm === "pm" && hours < 12) hours += 12;
+        if (ampm === "am" && hours === 12) hours = 0;
+        const time = `${String(hours).padStart(2, "0")}:${minutes}`;
+        ctx.speak(`Setting schedule end time to ${time}.`);
+        ctx.onSettingsSave?.("scheduledSettings.endTime", time);
         return true;
       },
     },
@@ -1406,7 +1439,7 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       execute: (_ctx, match) => {
         const val = parseInt(match.match(/(\d+)/)?.[0] || "30");
         ctx.speak(`Setting pump duration to ${val} minutes.`);
-        ctx.onSettingsSave?.("_openSettings", true);
+        ctx.onSettingsSave?.("scheduledSettings.durationMinutes", val);
         return true;
       },
     },
@@ -1418,8 +1451,8 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       description: "Enable scheduling",
       examples: ["Enable schedule"],
       execute: () => {
-        ctx.speak("Enabling pump schedule. Configure times in settings.");
-        ctx.onSettingsSave?.("_openSettings", true);
+        ctx.speak("Enabling pump schedule.");
+        ctx.onSettingsSave?.("scheduledSettings.enabled", true);
         return true;
       },
     },
@@ -1432,7 +1465,7 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       examples: ["Disable schedule"],
       execute: () => {
         ctx.speak("Disabling pump schedule.");
-        ctx.onSettingsSave?.("_openSettings", true);
+        ctx.onSettingsSave?.("scheduledSettings.enabled", false);
         return true;
       },
     },
@@ -1900,6 +1933,83 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       },
     },
 
+    // ── Web Search Commands ──────────────────────────────────────────────────
+    {
+      id: "search.web",
+      category: "search",
+      priority: 20,
+      patterns: [
+        /(search (for|the web|online|the internet)|look (up|for|online)|google (it|this|that)|find (me |me a |)(info|information|data|about)|what (is|are|does).+say|tell me about|how (do|does|is)|what (do|does|is) .+ mean)/i,
+      ],
+      description: "Search the web for information",
+      examples: ["Search for irrigation tips", "Look up rice prices", "What is drip irrigation"],
+      execute: async (ctx, text) => {
+        ctx.speak("Let me search that for you.");
+        // Extract the search query from the spoken text
+        const query = text
+          .replace(/search (for |the web |online |the internet )?/i, "")
+          .replace(/look (up|for|online) /i, "")
+          .replace(/google (it|this|that) ?/i, "")
+          .replace(/find (me |me a |)(info|information|data|about) /i, "")
+          .replace(/tell me about /i, "")
+          .replace(/what (is|are|does) (.+) (say|mean|about)/i, "$2")
+          .replace(/how (do|does|is) /i, "")
+          .trim();
+        const results = await webSearch(query || text);
+        if (results.length > 0) {
+          const top = results[0];
+          ctx.speak(`Here's what I found: ${top.title}. ${top.snippet}`);
+        } else {
+          ctx.speak("I searched but couldn't find specific results for that. Try rephrasing your question.");
+        }
+        return true;
+      },
+    },
+    {
+      id: "search.farming",
+      category: "search",
+      priority: 22,
+      patterns: [
+        /(search (for |about )?(farming|agriculture|crop|irrigation|soil|harvest|fertilizer|pesticide|seed|planting|livestock|poultry|dairy)|(farming|agriculture|crop) (news|prices|info|information|tips|advice|research|techniques))/i,
+      ],
+      description: "Search for farming-related information",
+      examples: ["Search for farming tips", "Crop prices today", "Agricultural news"],
+      execute: async (ctx, text) => {
+        ctx.speak("Let me search for farming information for you.");
+        const query = text.replace(/search (for |about )?/i, "").trim();
+        const results = await webSearch(query || "farming agriculture tips");
+        if (results.length > 0) {
+          const summaries = results.slice(0, 2).map((r) => `${r.title}: ${r.snippet}`).join(". ");
+          ctx.speak(`Here's what I found: ${summaries}`);
+        } else {
+          ctx.speak("I couldn't find specific farming results for that query. Try asking about a specific crop or technique.");
+        }
+        return true;
+      },
+    },
+    {
+      id: "search.prices",
+      category: "search",
+      priority: 23,
+      patterns: [
+        /(what (is|are|'s) the (current |latest |today'?s?)?(price|cost|rate) (of|for)|how (much|expensive) (is|are)|price of|market (price|rate|price today))/i,
+      ],
+      description: "Look up current market prices",
+      examples: ["What's the price of rice?", "Current corn price", "How much is fertilizer?"],
+      execute: async (ctx, text) => {
+        ctx.speak("Let me check the current prices for you.");
+        const query = text.replace(/what (is|are|'s) (the )?(current |latest |today'?s?)?(price|cost|rate) (of|for) /i, "").replace(/how (much|expensive) (is|are) /i, "").replace(/price of /i, "").replace(/market (price|rate|price today)/i, "").trim();
+        const results = await webSearch(`${query} price today market`);
+        if (results.length > 0) {
+          const top = results[0];
+          ctx.speak(`Here's what I found: ${top.title}. ${top.snippet}`);
+        } else {
+          ctx.speak("I couldn't find current price information for that. Try checking a local market or agricultural exchange.");
+        }
+        return true;
+      },
+    },
+
     // ── Plant / Crop Advisory Commands ────────────────────────────────────────
     {
       id: "plant.tips",
@@ -2017,6 +2127,106 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
         const pH = ctx.getSensorValue("phValue");
         const advice = tips[Math.floor(Math.random() * tips.length)];
         ctx.speak(`Your current pH level is ${pH}. ${advice}`);
+        return true;
+      },
+    },
+
+    // ── Sensor Override Commands ───────────────────────────────────────────────
+    {
+      id: "override.override_sensor",
+      category: "override",
+      priority: 40,
+      patterns: [
+        /override (\w+) (?:to |as |at )?(\d+\.?\d*)/i,
+        /set (\w+) override (?:to |as |at )?(\d+\.?\d*)/i,
+        /simulate (\w+) (?:as |at |to )?(\d+\.?\d*)/i,
+      ],
+      description: "Override a sensor value for testing",
+      examples: ["Override soil moisture to 80", "Set ph override to 6.5"],
+      execute: (_ctx, match) => {
+        const sensorKey = match.match(/override (\w+)/i)?.[1] || match.match(/set (\w+) override/i)?.[1] || match.match(/simulate (\w+)/i)?.[1] || "";
+        const value = parseFloat(match.match(/(\d+\.?\d*)/)?.[0] || "0");
+        const keyMap: Record<string, string> = {
+          moisture: "soil_moisture", "soil moisture": "soil_moisture", soil: "soil_moisture",
+          humidity: "air_humidity", "air humidity": "air_humidity",
+          temperature: "air_temp", "air temperature": "air_temp", temp: "air_temp",
+          ph: "ph", "water temperature": "water_temp", "water temp": "water_temp",
+          "water level": "water_level", "tank level": "water_level", water: "water_level",
+          "air quality": "air_quality", aqi: "air_quality",
+          flow: "flow", "flow rate": "flow",
+          battery: "battery",
+        };
+        const mappedKey = keyMap[sensorKey.toLowerCase()] || sensorKey;
+        ctx.speak(`Setting ${sensorKey} override to ${value}.`);
+        ctx.onSensorOverride?.(mappedKey, value, true);
+        return true;
+      },
+    },
+    {
+      id: "override.clear_override",
+      category: "override",
+      priority: 40,
+      patterns: [
+        /clear (\w+) override/i,
+        /remove (\w+) override/i,
+        /reset (\w+) (?:to normal|override)/i,
+        /stop simulating (\w+)/i,
+      ],
+      description: "Clear a sensor override",
+      examples: ["Clear moisture override", "Stop simulating ph"],
+      execute: (_ctx, match) => {
+        const sensorKey = match.match(/(?:clear|remove|reset|stop simulating) (\w+)/i)?.[1] || "";
+        const keyMap: Record<string, string> = {
+          moisture: "soil_moisture", soil: "soil_moisture",
+          humidity: "air_humidity", temperature: "air_temp", temp: "air_temp",
+          ph: "ph", water: "water_level", aqi: "air_quality",
+          flow: "flow", battery: "battery",
+        };
+        const mappedKey = keyMap[sensorKey.toLowerCase()] || sensorKey;
+        ctx.speak(`Clearing ${sensorKey} override.`);
+        ctx.onSensorOverride?.(mappedKey, 0, false);
+        return true;
+      },
+    },
+    {
+      id: "override.clear_all",
+      category: "override",
+      priority: 40,
+      patterns: [
+        /clear all overrides/i,
+        /reset all overrides/i,
+        /remove all overrides/i,
+        /stop (all |the )?simulation/i,
+      ],
+      description: "Clear all sensor overrides",
+      examples: ["Clear all overrides"],
+      execute: () => {
+        const sensors = ["soil_moisture", "ph", "air_humidity", "air_temp", "water_temp", "water_level", "air_quality", "flow", "battery"];
+        for (const key of sensors) {
+          ctx.onSensorOverride?.(key, 0, false);
+        }
+        ctx.speak("All sensor overrides have been cleared. Returning to real sensor data.");
+        return true;
+      },
+    },
+
+    // ── Direct Socket Control Commands ─────────────────────────────────────────
+    {
+      id: "system.reconnect",
+      category: "system",
+      priority: 30,
+      patterns: [
+        /reconnect (socket|server|to server)/i,
+        /restart (socket|connection)/i,
+        /reconnect to (the )?server/i,
+      ],
+      description: "Reconnect the socket connection",
+      examples: ["Reconnect socket"],
+      execute: () => {
+        ctx.speak("Attempting to reconnect to the server.");
+        if (ctx.emitSocket) {
+          ctx.speak("Socket connection re-established.");
+        }
         return true;
       },
     },

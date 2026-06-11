@@ -407,10 +407,23 @@ export function buildCommands(ctx: CommandContext): VoiceCommand[] {
       priority: 14,
       patterns: [/\b(go to alerts page|open notifications|alerts page|notifications)\b/i],
       description: "Go to alerts page",
-      examples: ["Go to alerts page", "Show notifications"],
+      examples: ["Go to alerts page", "Open notifications"],
       execute: () => {
+        ctx.speak("Opening the alerts page.");
         ctx.navigate("/alerts");
-        ctx.speak("Opening alerts.");
+        return true;
+      },
+    },
+    {
+      id: "navigation.devices",
+      category: "navigation",
+      priority: 14,
+      patterns: [/\b(go to devices|show devices|open devices|devices page|device list)\b/i],
+      description: "Go to devices page",
+      examples: ["Show devices", "Open devices page"],
+      execute: () => {
+        ctx.speak("Opening the devices page.");
+        ctx.navigate("/devices");
         return true;
       },
     },

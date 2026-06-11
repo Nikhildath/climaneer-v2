@@ -1,5 +1,7 @@
-import { Activity, Bell, Clock, LayoutDashboard } from "lucide-react";
+"use client";
+import { Activity, Bell, Clock, LayoutDashboard, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface NavigationTabsProps {
   activeTab: string;
@@ -9,17 +11,14 @@ interface NavigationTabsProps {
 
 const tabs = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "devices", label: "Devices", icon: Cpu },
   { id: "analytics", label: "Analytics", icon: Activity },
   { id: "alerts", label: "Alerts", icon: Bell, showBadge: true },
   { id: "history", label: "History", icon: Clock },
 ];
 
 function TabButton({
-  tab,
-  isActive,
-  alertCount,
-  onClick,
-  layout,
+  tab, isActive, alertCount, onClick, layout,
 }: {
   tab: (typeof tabs)[0];
   isActive: boolean;
@@ -33,35 +32,45 @@ function TabButton({
       onClick={onClick}
       data-testid={`tab-${tab.id}`}
       className={cn(
-        "transition-all touch-target hover:text-primary",
-        isActive ? "text-primary" : "text-muted-foreground",
+        "relative transition-all touch-target",
+        isActive
+          ? "text-foreground"
+          : "text-muted-foreground/60 hover:text-muted-foreground",
         layout === "mobile"
-          ? "flex-1 flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold relative"
-          : "flex items-center gap-2 px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold relative"
+          ? "flex-1 flex flex-col items-center gap-0.5 py-1.5 text-[9px] font-semibold"
+          : "flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium"
       )}
     >
-      <div className="relative">
+      <div className="relative flex items-center justify-center">
         <Icon className={cn(layout === "mobile" ? "h-5 w-5" : "h-4 w-4")} />
         {tab.showBadge && alertCount > 0 && (
-          <span
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
             className={cn(
-              "absolute rounded-full bg-destructive font-bold text-destructive-foreground flex items-center justify-center",
+              "absolute rounded-full bg-accent font-bold text-accent-foreground flex items-center justify-center",
               layout === "mobile"
-                ? "-top-1.5 -right-2 h-4 min-w-4 px-0.5 text-[9px]"
-                : "-top-1 -right-2 h-4 w-4 text-[9px] sm:static sm:h-5 sm:min-w-5 sm:px-1.5 sm:text-xs sm:ml-1"
+                ? "-top-1 -right-2 h-3.5 min-w-[14px] px-0.5 text-[7px] leading-none"
+                : "-top-1 -right-2 h-3.5 min-w-[14px] px-0.5 text-[8px] sm:static sm:h-4 sm:min-w-4 sm:px-1 sm:text-[9px] sm:ml-1 sm:top-0 sm:right-0"
             )}
             data-testid="alert-count"
           >
             {alertCount > 99 ? "99+" : alertCount}
-          </span>
+          </motion.span>
         )}
       </div>
-      <span className={layout === "desktop" ? "whitespace-nowrap" : ""}>{tab.label}</span>
-      {isActive && layout === "desktop" && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-t-full" />
-      )}
-      {isActive && layout === "mobile" && (
-        <div className="absolute top-0 left-2 right-2 h-0.5 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-b-full" />
+      <span>{tab.label}</span>
+      {isActive && (
+        <motion.div
+          layoutId={`active-pill-${layout}`}
+          className={cn(
+            "absolute bg-foreground/10 rounded-full",
+            layout === "mobile"
+              ? "inset-1"
+              : "inset-0.5"
+          )}
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+        />
       )}
     </button>
   );
@@ -70,9 +79,9 @@ function TabButton({
 export function NavigationTabs({ activeTab, onTabChange, alertCount }: NavigationTabsProps) {
   return (
     <>
-      {/* Mobile bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 sm:hidden border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 safe-bottom shadow-[0_-2px_8px_rgba(0,0,0,0.08)]">
-        <div className="flex items-stretch">
+      {/* Mobile: floating pill bar */}
+      <nav className="fixed bottom-3 left-3 right-3 z-50 sm:hidden">
+        <div className="flex items-stretch rounded-xl bg-card/80 backdrop-blur-2xl border border-border/40 shadow-lg px-1 py-0.5">
           {tabs.map((tab) => (
             <TabButton
               key={tab.id}
@@ -86,10 +95,10 @@ export function NavigationTabs({ activeTab, onTabChange, alertCount }: Navigatio
         </div>
       </nav>
 
-      {/* Desktop top nav */}
-      <nav className="sticky top-14 sm:top-16 z-40 hidden sm:block w-full border-b bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container mx-auto px-3 sm:px-6">
-          <div className="flex gap-1">
+      {/* Desktop: inline pill bar */}
+      <nav className="sticky top-14 sm:top-16 z-40 hidden sm:block bg-background/80 backdrop-blur-md border-b border-border/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-1 py-2">
             {tabs.map((tab) => (
               <TabButton
                 key={tab.id}

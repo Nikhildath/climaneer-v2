@@ -1,45 +1,78 @@
 "use client";
 import { SensorCard } from "@/components/SensorCard";
 import { StatusCard } from "@/components/StatusCard";
-import { ProgressRing } from "@/components/ProgressRing";
-import { WaterTankVisualization } from "@/components/WaterTankVisualization";
-import { PHScaleVisualization } from "@/components/PHScaleVisualization";
-import { TemperatureGauge } from "@/components/TemperatureGauge";
-import { AQIBar } from "@/components/AQIBar";
 import { WeatherCard } from "@/components/WeatherCard";
-import { Card } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import {
   Droplets, Cloud, Thermometer, Activity, Wind,
-  Gauge, Beaker, Waves, Cpu, Zap, Battery, Wifi, Lightbulb,
+  Gauge as GaugeIcon, Beaker, Waves, Cpu, Zap, Battery, Wifi,
+  Leaf, Timer, Sparkles,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import { formatTemp, tempUnitLabel } from "@/lib/format-temp";
+import { tempUnitLabel } from "@/lib/format-temp";
+import { motion } from "framer-motion";
+
+const statusForValue = (value: number, goodRange: [number, number], warnRange: [number, number]): "good" | "warning" | "danger" => {
+  if (value >= goodRange[0] && value <= goodRange[1]) return "good";
+  if (value >= warnRange[0] && value <= warnRange[1]) return "warning";
+  return "danger";
+};
+
+const sensorConfigs = [
+  { id: "sensor-soil-moisture", title: "Soil Moisture", icon: Droplets, unit: "%", range: [0, 100] as [number, number], good: [30, 70] as [number, number], warn: [20, 80] as [number, number] },
+  { id: "sensor-air-humidity", title: "Air Humidity", icon: Cloud, unit: "%", range: [0, 100] as [number, number], good: [40, 70] as [number, number], warn: [30, 80] as [number, number] },
+  { id: "sensor-water-level", title: "Water Level", icon: Waves, unit: "%", range: [0, 100] as [number, number], good: [50, 100] as [number, number], warn: [25, 50] as [number, number] },
+  { id: "sensor-ph", title: "pH Level", icon: Beaker, unit: "", range: [0, 14] as [number, number], good: [6, 7.5] as [number, number], warn: [5, 8.5] as [number, number] },
+  { id: "sensor-air-temp", title: "Air Temp", icon: Thermometer, unit: "°C", range: [0, 50] as [number, number], good: [15, 30] as [number, number], warn: [10, 40] as [number, number] },
+  { id: "sensor-water-temp", title: "Water Temp", icon: Thermometer, unit: "°C", range: [0, 40] as [number, number], good: [20, 30] as [number, number], warn: [15, 35] as [number, number] },
+  { id: "sensor-air-quality", title: "Air Quality", icon: Wind, unit: "AQI", range: [0, 300] as [number, number], good: [0, 50] as [number, number], warn: [50, 100] as [number, number] },
+  { id: "sensor-flow-rate", title: "Flow Rate", icon: GaugeIcon, unit: "L/min", range: [0, 30] as [number, number], good: [5, 15] as [number, number], warn: [0, 25] as [number, number] },
+];
+
+const statusTexts: Record<string, { good: string; warning: string; danger: string }> = {
+  "sensor-soil-moisture": { good: "Optimal", warning: "Low", danger: "Critical" },
+  "sensor-air-humidity": { good: "Optimal", warning: "Monitor", danger: "Extreme" },
+  "sensor-water-level": { good: "Sufficient", warning: "Low", danger: "Critical" },
+  "sensor-ph": { good: "Optimal", warning: "Adjust", danger: "Extreme" },
+  "sensor-air-temp": { good: "Optimal", warning: "Monitor", danger: "Extreme" },
+  "sensor-water-temp": { good: "Optimal", warning: "Monitor", danger: "Extreme" },
+  "sensor-air-quality": { good: "Good", warning: "Moderate", danger: "Poor" },
+  "sensor-flow-rate": { good: "Active", warning: "Low", danger: "Idle" },
+};
+
+const trendFor = (id: string, value: number, baseline: number): "up" | "down" | "stable" => {
+  if (id === "sensor-air-quality") return value > baseline ? "up" : "down";
+  if (id === "sensor-flow-rate") return value > 2 ? "up" : "stable";
+  return value > baseline ? "up" : "down";
+};
 
 export default function DashboardPage() {
   const { sensorData, systemStatus, aiRecommendation, settings } = useApp();
+  const [mounted, setMounted] = useState(false);
 
-  const sensorForUI = sensorData ?? {
-    id: "default",
-    timestamp: new Date().toISOString(),
-    soilMoisture: 0,
-    airHumidity: 0,
-    waterLevel: 0,
-    pH: 7,
-    airTemperature: 0,
-    waterTemperature: 0,
-    airQuality: 0,
-    flowRate: 0,
-    battery: 100,
+  useEffect(() => { setMounted(true); }, []);
+
+  const sensor = sensorData ?? {
+    id: "default", timestamp: new Date().toISOString(),
+    soilMoisture: 65.4, airHumidity: 72.3, waterLevel: 81.2, pH: 7.1,
+    airTemperature: 29.8, waterTemperature: 27.5, airQuality: 145,
+    flowRate: 12.7, battery: 90,
   };
 
-  const statusForUI = systemStatus ?? {
-    uptime: 0,
-    pumpStatus: "stopped" as const,
-    pumpRuntime: 0,
-    controlMode: "automatic" as const,
-    networkSignal: "weak" as const,
-    dataUsage: 0,
+  const status = systemStatus ?? {
+    uptime: 0, pumpStatus: "stopped" as const, pumpRuntime: 0,
+    controlMode: "automatic" as const, networkSignal: "weak" as const, dataUsage: 0,
+  };
+
+  const values: Record<string, number> = {
+    "sensor-soil-moisture": sensor.soilMoisture,
+    "sensor-air-humidity": sensor.airHumidity,
+    "sensor-water-level": sensor.waterLevel,
+    "sensor-ph": sensor.pH,
+    "sensor-air-temp": sensor.airTemperature,
+    "sensor-water-temp": sensor.waterTemperature,
+    "sensor-air-quality": sensor.airQuality,
+    "sensor-flow-rate": sensor.flowRate,
   };
 
   const [waterUsedToday, setWaterUsedToday] = useState(0);
@@ -47,146 +80,99 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const now = Date.now();
-    const timeDiffMinutes = (now - lastUpdateTime) / (1000 * 60);
-    if (timeDiffMinutes > 0 && sensorForUI.flowRate > 0) {
-      const litersUsed = sensorForUI.flowRate * timeDiffMinutes;
-      setWaterUsedToday((prev) => prev + litersUsed);
+    const diff = (now - lastUpdateTime) / (1000 * 60);
+    if (diff > 0 && sensor.flowRate > 0) {
+      setWaterUsedToday((prev) => prev + sensor.flowRate * diff);
     }
     setLastUpdateTime(now);
-  }, [sensorForUI.flowRate]);
+  }, [sensor.flowRate]);
+
+  if (!mounted) return null;
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-4 sm:space-y-5 pb-20 sm:pb-8">
       {aiRecommendation && (
-        <Card className="p-4 sm:p-6 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border-emerald-200 dark:border-emerald-800">
-          <div className="flex gap-3 sm:gap-4">
-            <Lightbulb className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 flex-shrink-0 mt-0.5" />
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="panel rounded-lg px-4 py-3 border-l-[3px] border-l-emerald-500"
+        >
+          <div className="flex gap-2.5 items-start">
+            <Sparkles className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
             <div className="min-w-0">
-              <h3 className="font-semibold text-sm sm:text-base text-emerald-900 dark:text-emerald-100">AI Recommendation</h3>
-              <p className="text-xs sm:text-sm text-emerald-800 dark:text-emerald-200 mt-1">{aiRecommendation}</p>
+              <p className="text-[11px] font-semibold gradient-text mb-0.5">AI Recommendation</p>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{aiRecommendation}</p>
             </div>
           </div>
-        </Card>
+        </motion.div>
       )}
 
-      <section data-testid="weather-section">
+      <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}>
         <WeatherCard />
-      </section>
+      </motion.div>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="status-overview">
-        <StatusCard title="System Status" value="All Operational" subtitle={`Uptime: ${statusForUI.uptime.toFixed(1)}%`} icon={Cpu} status="active" testId="status-system" />
-        <StatusCard
-          title="Pump Status"
-          value={statusForUI.pumpStatus === "running" ? "Running" : statusForUI.pumpStatus === "stopped" ? "Stopped" : "Error"}
-          subtitle={`Runtime: ${Math.floor(statusForUI.pumpRuntime / 60)}h ${statusForUI.pumpRuntime % 60}m`}
-          icon={Waves}
-          status={statusForUI.pumpStatus === "running" ? "active" : statusForUI.pumpStatus === "error" ? "danger" : "inactive"}
-          testId="status-pump"
-        />
-        <StatusCard
-          title="Battery Level"
-          value={`${sensorForUI.battery}%`}
-          subtitle={`Est. ${Math.floor((sensorForUI.battery / 100) * 24)}h remaining`}
-          icon={Battery}
-          status={sensorForUI.battery > 50 ? "active" : sensorForUI.battery > 20 ? "warning" : "danger"}
-          testId="status-battery"
-        />
-        <StatusCard
-          title="Network"
-          value={statusForUI.networkSignal.charAt(0).toUpperCase() + statusForUI.networkSignal.slice(1)}
-          subtitle={`Data: ${statusForUI.dataUsage.toFixed(1)} MB`}
-          icon={Wifi}
-          status={statusForUI.networkSignal === "strong" ? "active" : statusForUI.networkSignal === "medium" ? "warning" : "danger"}
-          testId="status-network"
-        />
-      </section>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { title: "System", value: "All Operational", sub: `Uptime: ${status.uptime.toFixed(1)}%`, icon: Activity, st: "active" as const, id: "status-system" },
+          { title: "Pump", value: status.pumpStatus === "running" ? "Running" : "Stopped", sub: `${Math.floor(status.pumpRuntime / 60)}h ${status.pumpRuntime % 60}m`, icon: Waves, st: (status.pumpStatus === "running" ? "active" : "inactive") as "active" | "inactive", id: "status-pump" },
+          { title: "Battery", value: `${sensor.battery}%`, sub: `~${Math.floor((sensor.battery / 100) * 24)}h left`, icon: Battery, st: (sensor.battery > 50 ? "active" : sensor.battery > 20 ? "warning" : "danger") as "active" | "warning" | "danger", id: "status-battery" },
+          { title: "Network", value: status.networkSignal.charAt(0).toUpperCase() + status.networkSignal.slice(1), sub: `${status.dataUsage.toFixed(1)} MB`, icon: Wifi, st: (status.networkSignal === "strong" ? "active" : "warning") as "active" | "warning", id: "status-network" },
+        ].map((s) => (
+          <StatusCard key={s.id} title={s.title} value={s.value} subtitle={s.sub} icon={s.icon} status={s.st} testId={s.id} />
+        ))}
+      </div>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" data-testid="sensor-grid">
-        <SensorCard title="Soil Moisture" value={sensorForUI.soilMoisture} unit="%" icon={Droplets}
-          status={sensorForUI.soilMoisture > 60 ? "good" : sensorForUI.soilMoisture > 30 ? "warning" : "danger"}
-          statusText={sensorForUI.soilMoisture > 60 ? "Optimal" : sensorForUI.soilMoisture > 30 ? "Low" : "Critical"}
-          trend={sensorForUI.soilMoisture > 50 ? "up" : "down"} testId="sensor-soil-moisture"
-          visualization={<ProgressRing progress={sensorForUI.soilMoisture} icon={Droplets}
-            color={sensorForUI.soilMoisture > 60 ? "hsl(var(--chart-1))" : sensorForUI.soilMoisture > 30 ? "hsl(var(--chart-4))" : "hsl(var(--destructive))"} />}
-        />
-        <SensorCard title="Air Humidity" value={sensorForUI.airHumidity} unit="%" icon={Cloud}
-          status={sensorForUI.airHumidity > 40 && sensorForUI.airHumidity < 70 ? "good" : "warning"}
-          statusText={sensorForUI.airHumidity > 40 && sensorForUI.airHumidity < 70 ? "Optimal" : "Monitor"}
-          trend="stable" testId="sensor-air-humidity"
-          visualization={<ProgressRing progress={sensorForUI.airHumidity} icon={Cloud} color="hsl(var(--chart-2))" />}
-        />
-        <SensorCard title="Water Level" value={sensorForUI.waterLevel} unit="%" icon={Waves}
-          status={sensorForUI.waterLevel > 50 ? "good" : sensorForUI.waterLevel > 25 ? "warning" : "danger"}
-          statusText={sensorForUI.waterLevel > 50 ? "Sufficient" : sensorForUI.waterLevel > 25 ? "Low" : "Critical"}
-          trend={sensorForUI.waterLevel > 50 ? "stable" : "down"} testId="sensor-water-level"
-          visualization={<WaterTankVisualization level={sensorForUI.waterLevel} />}
-        />
-        <SensorCard title="pH Level" value={sensorForUI.pH.toFixed(1)} icon={Beaker}
-          status={sensorForUI.pH >= 6 && sensorForUI.pH <= 7.5 ? "good" : "warning"}
-          statusText={sensorForUI.pH >= 6 && sensorForUI.pH <= 7.5 ? "Optimal" : "Adjust"}
-          trend={sensorForUI.pH > 7 ? "up" : "down"} testId="sensor-ph"
-          visualization={<PHScaleVisualization value={sensorForUI.pH} />}
-        />
-        <SensorCard title="Air Temperature" value={sensorForUI.airTemperature} unit={tempUnitLabel(settings.temperatureUnit)} icon={Thermometer}
-          status={sensorForUI.airTemperature > 15 && sensorForUI.airTemperature < 30 ? "good" : "warning"}
-          statusText="Current conditions" trend={sensorForUI.airTemperature > 25 ? "up" : "stable"} testId="sensor-air-temp"
-          visualization={<TemperatureGauge temperature={sensorForUI.airTemperature} />}
-        />
-        <SensorCard title="Water Temperature" value={sensorForUI.waterTemperature} unit={tempUnitLabel(settings.temperatureUnit)} icon={Thermometer}
-          status={sensorForUI.waterTemperature > 15 && sensorForUI.waterTemperature < 25 ? "good" : "warning"}
-          statusText={sensorForUI.waterTemperature > 15 && sensorForUI.waterTemperature < 25 ? "Optimal" : "Monitor"}
-          trend="stable" testId="sensor-water-temp"
-        />
-        <SensorCard title="Air Quality" value={sensorForUI.airQuality} unit="AQI" icon={Wind}
-          status={sensorForUI.airQuality < 50 ? "good" : sensorForUI.airQuality < 100 ? "warning" : "danger"}
-          statusText={sensorForUI.airQuality < 50 ? "Good" : sensorForUI.airQuality < 100 ? "Moderate" : "Poor"}
-          trend={sensorForUI.airQuality < 50 ? "down" : "up"} testId="sensor-air-quality"
-          visualization={<AQIBar aqi={sensorForUI.airQuality} />}
-        />
-        <SensorCard title="Water Flow" value={sensorForUI.flowRate.toFixed(1)} unit="L/min" icon={Gauge}
-          status={sensorForUI.flowRate > 0 ? "good" : "info"} statusText={sensorForUI.flowRate > 0 ? "Active" : "Idle"}
-          trend={sensorForUI.flowRate > 2 ? "up" : "stable"} testId="sensor-flow-rate"
-        />
-      </section>
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        {sensorConfigs.map((cfg) => {
+          const v = values[cfg.id];
+          const st = statusForValue(v, cfg.good, cfg.warn);
+          const txts = statusTexts[cfg.id];
+          const stxt = txts ? txts[st] : st;
+          const tr = trendFor(cfg.id, v, cfg.range[0] + (cfg.range[1] - cfg.range[0]) * 0.5);
+          const displayVal = cfg.id === "sensor-ph" ? v.toFixed(1) : cfg.id === "sensor-flow-rate" ? v.toFixed(1) : Math.round(v);
+          return (
+            <SensorCard
+              key={cfg.id}
+              title={cfg.title}
+              value={displayVal}
+              unit={cfg.id === "sensor-air-temp" || cfg.id === "sensor-water-temp" ? tempUnitLabel(settings.temperatureUnit) : cfg.unit}
+              icon={cfg.icon}
+              status={st}
+              statusText={stxt}
+              trend={tr}
+              min={cfg.range[0]}
+              max={cfg.range[1]}
+              testId={cfg.id}
+            />
+          );
+        })}
+      </div>
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4" data-testid="statistics-section">
-        <div className="rounded-lg border bg-card p-4 sm:p-6">
-          <div className="flex items-center gap-3 mb-3 sm:mb-4">
-            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-cyan-500/10">
-              <Droplets className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-500" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[
+          { icon: Droplets, label: "Today's Water", value: waterUsedToday.toFixed(1), subLabel: "L", sub: `Flow: ${sensor.flowRate.toFixed(1)} L/min` },
+          { icon: Leaf, label: "Efficiency", value: "95", subLabel: "%", sub: "Performance: Excellent" },
+          { icon: Zap, label: "Control Mode", value: status.controlMode === "automatic" ? "Auto" : status.controlMode === "manual" ? "Manual" : "Scheduled", sub: status.controlMode === "automatic" ? "AI-driven" : status.controlMode === "manual" ? "Operator" : "Time-based" },
+        ].map((stat, i) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 + i * 0.05, duration: 0.3 }}
+            className="panel rounded-lg px-4 py-3.5"
+          >
+            <div className="flex items-center gap-2 mb-1.5">
+              <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="stat-label text-muted-foreground">{stat.label}</span>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-muted-foreground">Today&apos;s Water Usage</p>
-              <p className="text-lg sm:text-2xl font-bold truncate">{waterUsedToday.toFixed(1)} L</p>
+            <div className="flex items-baseline gap-1 mb-0.5">
+              <span className="text-2xl sm:text-3xl font-bold tracking-tight">{stat.value}</span>
+              {stat.subLabel && <span className="text-xs font-medium text-muted-foreground">{stat.subLabel}</span>}
             </div>
-          </div>
-          <div className="text-xs text-muted-foreground">Current flow: {sensorForUI.flowRate.toFixed(1)} L/min</div>
-        </div>
-        <div className="rounded-lg border bg-card p-4 sm:p-6">
-          <div className="flex items-center gap-3 mb-3 sm:mb-4">
-            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-emerald-500/10">
-              <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-muted-foreground">System Efficiency</p>
-              <p className="text-lg sm:text-2xl font-bold">95%</p>
-            </div>
-          </div>
-          <div className="text-xs text-muted-foreground">Performance: Excellent</div>
-        </div>
-        <div className="rounded-lg border bg-card p-4 sm:p-6">
-          <div className="flex items-center gap-3 mb-3 sm:mb-4">
-            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-amber-500/10">
-              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs sm:text-sm text-muted-foreground">Control Mode</p>
-              <p className="text-lg sm:text-2xl font-bold truncate">{statusForUI.controlMode === "automatic" ? "Auto" : "Manual"}</p>
-            </div>
-          </div>
-          <div className="text-xs text-muted-foreground">Operating mode</div>
-        </div>
-      </section>
+            <p className="text-[11px] text-muted-foreground">{stat.sub}</p>
+          </motion.div>
+        ))}
+      </div>
     </div>
   );
 }

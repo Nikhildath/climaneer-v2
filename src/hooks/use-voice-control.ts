@@ -3,6 +3,9 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { buildCommands, findMatchingCommand, type CommandContext, type VoiceCommand } from "@/lib/voice-commands";
 import { parseWithAI, getAIConfig, type AIProvider, type AIResponse } from "@/lib/ai-client";
+import { GEMINI_API_KEY, OPENROUTER_API_KEY } from "@/lib/env";
+import { nativeSpeak } from "@/lib/capacitor-tts";
+import { speakNatural, pickBestVoice, resetVoiceCache } from "@/lib/tts";
 
 
 interface VoiceControlOptions {
@@ -18,11 +21,15 @@ interface VoiceControlOptions {
   getActiveAlerts: () => string;
   getControlMode: () => string;
   onSettingsSave?: (key: string, value: any) => void;
+  onSettingsSaveAll?: (settings: Record<string, any>) => void;
   onAlertDismiss?: (id?: string) => void;
   onClearAlerts?: () => void;
   onExport?: () => void;
   onRefresh?: () => void;
   onStopListening?: () => void;
+  emitSocket?: (event: string, data?: any) => boolean;
+  getSettings?: () => Record<string, any>;
+  onSensorOverride?: (sensorKey: string, value: number, enabled: boolean) => void;
   aiMode?: boolean;
   aiProvider?: "auto" | "gemini" | "openrouter" | "none";
   geminiApiKey?: string;
@@ -140,7 +147,8 @@ export function useVoiceControl(options: VoiceControlOptions) {
   const {
     onCommand, getSensorValue, onPumpToggle, onAutoMode, onManualMode, onScheduledMode,
     navigate, getSystemStatus, getAIRecommendation, getActiveAlerts, getControlMode,
-    onSettingsSave, onAlertDismiss, onClearAlerts, onExport, onRefresh, onStopListening,
+    onSettingsSave, onSettingsSaveAll, onAlertDismiss, onClearAlerts, onExport, onRefresh, onStopListening,
+    emitSocket, getSettings, onSensorOverride,
     aiMode: aiModeOption = true,
     aiProvider: aiProviderOption,
     geminiApiKey: geminiApiKeyOption, openrouterApiKey: openrouterApiKeyOption,
@@ -173,23 +181,34 @@ export function useVoiceControl(options: VoiceControlOptions) {
 
     const env = envAIConfig.current;
     let provider: AIProvider = null;
-    if (aiProviderOption === "gemini" || aiProviderOption === "openrouter") {
-      provider = aiProviderOption;
-    } else if (env.provider) {
-      provider = env.provider;
-    }
-
-    const geminiKey = geminiApiKeyOption || process.env.NEXT_PUBLIC_GEMINI_API_KEY || "";
-    const openrouterKey = openrouterApiKeyOption || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "";
     let apiKey = "";
     let model: string | undefined;
 
-    if (provider === "gemini") {
-      apiKey = geminiKey || env.apiKey;
+    if (aiProviderOption === "gemini") {
+      provider = "gemini";
+      apiKey = geminiApiKeyOption || GEMINI_API_KEY;
       model = geminiModelOption || env.model;
-    } else if (provider === "openrouter") {
-      apiKey = openrouterKey || env.apiKey;
+    } else if (aiProviderOption === "openrouter") {
+      provider = "openrouter";
+      apiKey = openrouterApiKeyOption || OPENROUTER_API_KEY;
       model = openrouterModelOption || env.model;
+    } else if (aiProviderOption === "auto") {
+      // Auto: prefer user's saved keys from settings, then fall back to env vars
+      const userGeminiKey = geminiApiKeyOption || GEMINI_API_KEY;
+      const userOpenrouterKey = openrouterApiKeyOption || OPENROUTER_API_KEY;
+      if (userGeminiKey) {
+        provider = "gemini";
+        apiKey = userGeminiKey;
+        model = geminiModelOption || env.model;
+      } else if (userOpenrouterKey) {
+        provider = "openrouter";
+        apiKey = userOpenrouterKey;
+        model = openrouterModelOption || env.model;
+      } else if (env.provider) {
+        provider = env.provider;
+        apiKey = env.apiKey;
+        model = env.model;
+      }
     }
 
     if (provider && apiKey) {
@@ -199,6 +218,7 @@ export function useVoiceControl(options: VoiceControlOptions) {
     } else {
       aiConfigRef.current = { provider: null, apiKey: "" };
       setAiMode(false);
+      console.log("[Clima v2] AI disabled — no provider/key available. Provider setting:", aiProviderOption);
     }
   }, [aiModeOption, aiProviderOption, geminiApiKeyOption, openrouterApiKeyOption, geminiModelOption, openrouterModelOption]);
 
@@ -207,43 +227,62 @@ export function useVoiceControl(options: VoiceControlOptions) {
     const interval = setInterval(() => {
       if (!listeningLoopRef.current) return;
       // Chrome can silently kill SpeechRecognition without firing onerror/onend.
-      // If we haven't seen any activity for 90 seconds, force restart.
-      if (Date.now() - lastActivityRef.current > 90000) {
+      // If we haven't seen any activity for 60 seconds, force restart.
+      if (Date.now() - lastActivityRef.current > 60000) {
         console.log("[Clima v2] Heartbeat: no activity detected, forcing restart...");
         if (recognitionRef.current) {
           try { recognitionRef.current.abort(); } catch {}
         }
         doRestartRef.current?.(0);
       }
-    }, 30000);
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 
-  const speak = useCallback(async (text: string) => {
+  const voiceIndexRef = useRef(0);
+  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
+
+  const listVoices = useCallback(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    voicesRef.current = window.speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en"));
+    resetVoiceCache();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    listVoices();
+    window.speechSynthesis.onvoiceschanged = listVoices;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, [listVoices]);
+
+  const speak = useCallback(async (text: string, voiceName?: string) => {
     if (!text) return;
-    const puter = (window as any).puter;
-    if (!puter?.ai?.txt2speech) return;
-    try {
-      const audio = await puter.ai.txt2speech(text, { voice: "Joanna", engine: "neural", language: "en-US" });
-      if (!audio || typeof audio.play !== "function") return;
-      await new Promise<void>((resolve) => {
-        audio.onended = () => resolve();
-        audio.onerror = () => resolve();
-        const played = audio.play();
-        if (played?.catch) played.catch(() => resolve());
-        setTimeout(resolve, 10000);
-      });
-    } catch {}
+
+    // Try Capacitor TTS first (native apps)
+    const nativeResult = await nativeSpeak(text, { lang: "en-US", rate: 0.92, pitch: 1.02, volume: 1.0 });
+    if (nativeResult) return;
+
+    // Fall back to Web Speech API with natural pacing (browsers)
+    let voice: SpeechSynthesisVoice | undefined;
+    if (voiceName) {
+      const found = voicesRef.current.find((v) => v.name.includes(voiceName));
+      if (found) voice = found;
+    }
+    await speakNatural(text, { voice });
   }, []);
 
   const commandContext = useMemo<CommandContext>(() => ({
     getSensorValue, onPumpToggle, onAutoMode, onManualMode, onScheduledMode,
     navigate, getSystemStatus, getAIRecommendation, getActiveAlerts, getControlMode,
-    speak, onSettingsSave, onAlertDismiss, onClearAlerts, onExport, onRefresh, onStopListening,
+    speak, onSettingsSave, onSettingsSaveAll, onAlertDismiss, onClearAlerts,
+    onExport, onRefresh, onStopListening,
+    emitSocket, getSettings, onSensorOverride,
   }), [
     getSensorValue, onPumpToggle, onAutoMode, onManualMode, onScheduledMode,
     navigate, getSystemStatus, getAIRecommendation, getActiveAlerts, getControlMode,
-    speak, onSettingsSave, onAlertDismiss, onClearAlerts, onExport, onRefresh, onStopListening,
+    speak, onSettingsSave, onSettingsSaveAll, onAlertDismiss, onClearAlerts,
+    onExport, onRefresh, onStopListening,
+    emitSocket, getSettings, onSensorOverride,
   ]);
 
   const commandsRef = useRef<VoiceCommand[]>([]);
@@ -251,6 +290,7 @@ export function useVoiceControl(options: VoiceControlOptions) {
   const recognitionRef = useRef<any>(null);
   const firstActivationRef = useRef(true);
   const restartingRef = useRef(false);
+  const restartInProgressRef = useRef(false);
   const doRestartRef = useRef<(attempt: number) => void>();
   const lastActivityRef = useRef(Date.now());
   const commandContextRef = useRef(commandContext);
@@ -397,29 +437,34 @@ export function useVoiceControl(options: VoiceControlOptions) {
 
     recognition.onerror = (event: any) => {
       console.warn("[Clima v2] Error:", event.error, event.message || "");
-      // Don't restart on permission errors (will just fail again)
+      lastActivityRef.current = Date.now();
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         listeningLoopRef.current = false;
         setListening(false);
         return;
       }
-      // Restart on ALL other errors (no-speech, aborted, audio-capture, network, etc.)
-      if (listeningLoopRef.current && !restartingRef.current) {
+      if (listeningLoopRef.current && !restartInProgressRef.current) {
         restartingRef.current = true;
         doRestartRef.current?.(0);
       }
     };
 
     doRestartRef.current = (attempt: number) => {
-      if (!listeningLoopRef.current) return;
+      if (!listeningLoopRef.current || restartInProgressRef.current) return;
+      restartInProgressRef.current = true;
       const r = startRecognition();
-      if (!r) return;
+      if (!r) {
+        restartInProgressRef.current = false;
+        return;
+      }
       recognitionRef.current = r;
       try {
         r.start();
+        restartInProgressRef.current = false;
       } catch (err) {
+        restartInProgressRef.current = false;
         if (attempt < 3) {
-          setTimeout(() => doRestartRef.current?.(attempt + 1), 30 * (attempt + 1));
+          setTimeout(() => doRestartRef.current?.(attempt + 1), 50 * (attempt + 1));
         }
       }
     };
@@ -448,16 +493,9 @@ export function useVoiceControl(options: VoiceControlOptions) {
       }
     }
 
-    // Poll for Puter.js in background and announce v2 when ready
-    let attempts = 0;
-    const poll = setInterval(async () => {
-      attempts++;
-      if (attempts > 120) { clearInterval(poll); return; } // 30s max
-      if (!(window as any).puter?.ai?.txt2speech) return;
-      clearInterval(poll);
-      setVoiceVersion("v2");
-      speak("Sorry for the wait, I'm Clima v2 and I'm ready for action!");
-    }, 250);
+    // Announce ready — Web Speech API is available immediately
+    setVoiceVersion("v2");
+    speak("I'm ready for action!");
   }, [startRecognition, setVoiceVersion, speak]);
 
   useEffect(() => {

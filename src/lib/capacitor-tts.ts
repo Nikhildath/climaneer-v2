@@ -18,8 +18,8 @@ export async function nativeSpeak(
     await TextToSpeech.speak({
       text,
       lang: options?.lang || "en-US",
-      rate: options?.rate ?? 1.0,
-      pitch: options?.pitch ?? 1.0,
+      rate: options?.rate ?? 0.92,
+      pitch: options?.pitch ?? 1.02,
       volume: options?.volume ?? 1.0,
     });
     return true;

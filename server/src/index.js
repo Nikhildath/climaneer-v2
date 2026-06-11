@@ -26,10 +26,14 @@ const io = new Server(httpServer, {
 
 app.use(cors({ origin: "*" }));
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "..", "public")));
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+  res.json({
+    name: "CLIMANEER V2 Server",
+    status: "running",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.get("/api/health", (req, res) => {
@@ -45,7 +49,6 @@ async function start() {
   const { setupSocketHandlers } = await import("./socket-handlers.js");
 
   await initializeDatabase();
-  console.log("[DB] Database initialized");
 
   app.get("/api/devices", (req, res) => {
     try {
@@ -80,12 +83,14 @@ async function start() {
   }, 3600000);
 
   httpServer.listen(PORT, () => {
+    const isRender = !!process.env.RENDER;
+    const wsUrl = isRender ? `wss://${process.env.RENDER_EXTERNAL_URL?.replace(/^https?:\/\//, "") || "climaneer-v2.onrender.com"}:${PORT}` : `ws://localhost:${PORT}`;
     console.log(`
   \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
   \u2502  CLIMANEER V2 Server                    \u2502
   \u2502  Port: ${String(PORT).padEnd(37)}\u2502
   \u2502  CORS: ${CORS_ORIGIN.padEnd(36)}\u2502
-  \u2502  WebSocket: ws://localhost:${String(PORT).padEnd(22)}\u2502
+  \u2502  WebSocket: ${wsUrl.padEnd(33)}\u2502
   \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
     `);
   });

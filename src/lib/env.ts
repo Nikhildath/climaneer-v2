@@ -1,6 +1,9 @@
-// ── Socket.IO Server (hosted on Render) ───────────────────────
-// Your Render server URL — the frontend runs locally but connects here
-export const SOCKET_URL = "https://climaneer-server.onrender.com";
+// ── Socket.IO Server ──────────────────────────────────────────
+// npm run dev       → process.env.NODE_ENV = "development"  → localhost
+// npm run build+start → process.env.NODE_ENV = "production"  → Render
+export const SOCKET_URL = process.env.NODE_ENV === "development"
+  ? "http://localhost:3001"
+  : "https://climaneer-v2.onrender.com";
 
 // ── AI Voice Command Parser (Optional) ────────────────────────
 // Provider: "gemini" | "openrouter" | ""

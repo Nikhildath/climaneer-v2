@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CLIMANEER V2 Server</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e5e7eb;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 16px;
+      padding: 48px 56px;
+      text-align: center;
+      max-width: 480px;
+    }
+    .status { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #10b981; margin-right: 8px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .subtitle { color: #a1a1aa; font-size: 14px; margin-bottom: 32px; }
+    .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #27272a; font-size: 14px; }
+    .row:last-child { border-bottom: none; }
+    .label { color: #a1a1aa; }
+    .value { font-weight: 500; }
+    .badge {
+      display: inline-flex; align-items: center;
+      background: #052e16; color: #4ade80; padding: 6px 16px;
+      border-radius: 999px; font-size: 13px; font-weight: 600; margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge"><span class="status"></span>Online</div>
+    <h1>CLIMANEER V2</h1>
+    <p class="subtitle">Socket.IO Server — ESP32 Gateway</p>
+    <div class="row"><span class="label">Status</span><span class="value" style="color:#4ade80">Running</span></div>
+    <div class="row"><span class="label">Uptime</span><span class="value" id="uptime">0s</span></div>
+    <div class="row"><span class="label">Server Time</span><span class="value" id="time">—</span></div>
+  </div>
+  <script>
+    function fmt(s) { const h = Math.floor(s/3600); const m = Math.floor((s%3600)/60); const sec = Math.floor(s%60); return h>0 ? `${h}h ${m}m ${sec}s` : m>0 ? `${m}m ${sec}s` : `${sec}s`; }
+    setInterval(() => {
+      fetch("/api/health").then(r=>r.json()).then(d => {
+        document.getElementById("uptime").textContent = fmt(d.uptime);
+        document.getElementById("time").textContent = new Date(d.timestamp).toLocaleString();
+      }).catch(() => {});
+    }, 5000);
+  </script>
+</body>
+</html>

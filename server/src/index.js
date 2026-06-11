@@ -26,14 +26,10 @@ const io = new Server(httpServer, {
 
 app.use(cors({ origin: "*" }));
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 app.get("/", (req, res) => {
-  res.json({
-    name: "CLIMANEER V2 Server",
-    status: "running",
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-  });
+  res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });
 
 app.get("/api/health", (req, res) => {

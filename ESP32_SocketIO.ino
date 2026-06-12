@@ -1,87 +1,69 @@
 /*
-   CLIMANEER V2 - ESP32 Socket.IO Client (using SocketIoClient library)
-   ===================================================================
-   Connects ESP32 sensors to the Climaneer server via Socket.IO over WebSocket.
-   The server acts as a real-time hub: ESP32 pushes sensor data, the dashboard
-   displays it, and commands flow back from dashboard -> server -> ESP32.
+   CLIMANEER V2 - ESP32 Raw WebSocket Client
+   ==========================================
+   Connects ESP32 to the Climaneer server via plain WebSocket (no Socket.IO).
+   Uses the battle-tested WebSocketsClient library for reliable connections.
 
-   REQUIRES Arduino libraries:
-     - WebSockets by Markus Sattler (includes SocketIoClient)
-     - ArduinoJson by Benoit Blanchon
-     - DHT sensor library by Adafruit
-     - DallasTemperature by Miles Burton + OneWire by Jim Studt
+   Server endpoint: /esp32 (WebSocket, JSON messages)
 
    DEPLOYMENT:
-     Render (cloud): HOST="climaneer-v2.onrender.com", PORT=443, USE_SSL=true
-     Local testing:  HOST="192.168.1.100" (your PC IP), PORT=3001, USE_SSL=false
+     Render:  HOST="climaneer-v2.onrender.com", PORT=443, USE_SSL=true
+     Local:   HOST="192.168.1.100", PORT=3001, USE_SSL=false
 */
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <SocketIoClient.h>
+#include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 #include "DHT.h"
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
 // =============================================================================
-// USER CONFIGURATION — edit these before uploading to your ESP32
+// USER CONFIGURATION
 // =============================================================================
 
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-// Server address — for Render use "climaneer-v2.onrender.com", for local use your PC's LAN IP
 const char* HOST = "YOUR_SERVER_HOST";
-const int PORT = 443;             // 443 for Render (WSS), 3001 for local (WS)
-const bool USE_SSL = true;        // true for Render, false for local
+const int PORT = 443;
+const bool USE_SSL = true;
 
-// Device identity — must be unique per ESP32
 const char* DEVICE_ID = "climaneer-esp32-01";
 const char* DEVICE_NAME = "Greenhouse ESP32";
-const char* FIRMWARE_VERSION = "2.2.0";
+const char* FIRMWARE_VERSION = "3.0.0";
 const char* BOARD_TYPE = "ESP32 Dev Kit";
 
 // =============================================================================
 // HARDWARE PIN MAPPING
 // =============================================================================
 
-#define SOIL_PIN        34    // Soil moisture sensor (analog)
-#define PH_PIN          35    // pH sensor (analog)
-#define TRIG_PIN        23    // Ultrasonic trigger
-#define ECHO_PIN        22    // Ultrasonic echo
-#define RELAY_PIN        5    // Pump relay (LOW = ON, HIGH = OFF)
-#define DHT_PIN          4    // DHT22 air temp/humidity
-#define ONE_WIRE_BUS    13    // DS18B20 water temp (OneWire)
-#define MQ135_PIN       32    // Air quality sensor (analog)
-#define FLOW_SENSOR_PIN 27    // Flow meter (pulse input)
+#define SOIL_PIN        34
+#define PH_PIN          35
+#define TRIG_PIN        23
+#define ECHO_PIN        22
+#define RELAY_PIN        5
+#define DHT_PIN          4
+#define ONE_WIRE_BUS    13
+#define MQ135_PIN       32
+#define FLOW_SENSOR_PIN 27
 
 // =============================================================================
 // CALIBRATION CONSTANTS
 // =============================================================================
 
-const int ANALOG_MAX = 4095;            // ESP32 ADC is 12-bit
-const float ADC_REF_V = 3.3f;           // ADC reference voltage
-
-// Soil moisture — raw ADC values at wet and dry extremes
+const int ANALOG_MAX = 4095;
+const float ADC_REF_V = 3.3f;
 const int SOIL_WET_RAW = 1800, SOIL_DRY_RAW = 3700;
-
-// pH sensor — linear calibration: pH = SLOPE * voltage + INTERCEPT
 const float PH_SLOPE = -5.6548f, PH_INTERCEPT = 21.839f;
-
-// Water level — ultrasonic sensor maps distance to tank percentage
 const float TANK_HEIGHT_CM = 20.0f, MIN_WATER_LEVEL_CM = 5.0f;
-
-// Local AI pump decision thresholds (fallback when server is unreachable)
-const float DRY_SOIL_THRESHOLD = 50.0f, MOIST_SOIL_THRESHOLD = 70.0f;
-
-// Flow meter — pulses per liter (YF-S201 typical: 450), flow range mapping
+const float DRY_SOIL_THRESHOLD = 50.0f;
 const float PULSES_PER_LITER = 400000.0f, MAX_FLOW_LPM = 1.0f, MAX_AQI = 500.0f;
 
-// Timing
-const unsigned long UPDATE_INTERVAL_MS = 2000;      // Send sensor data every 2s
-const unsigned long HEARTBEAT_INTERVAL_MS = 15000;  // Heartbeat every 15s
-const unsigned long REGISTER_RETRY_MS = 5000;       // Retry registration every 5s
+const unsigned long UPDATE_INTERVAL_MS = 2000;
+const unsigned long HEARTBEAT_INTERVAL_MS = 15000;
+const unsigned long RECONNECT_INTERVAL_MS = 3000;
 
 // =============================================================================
 // GLOBAL STATE
@@ -92,20 +74,18 @@ volatile unsigned long flowPulseCount = 0;
 unsigned long lastFlowMeasureTime = 0;
 unsigned long lastUpdateTime = 0;
 unsigned long lastHeartbeatTime = 0;
-unsigned long lastRegisterAttempt = 0;
-bool deviceRegistered = false;
 bool pumpState = false;
 bool manualOverride = false;
 String currentMode = "AUTO";
+bool deviceRegistered = false;
 
-// Hardware instances
 DHT dht(DHT_PIN, DHT22);
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature ds18b20(&oneWire);
-SocketIoClient socket;
+WebSocketsClient webSocket;
 
 // =============================================================================
-// UTILITY FUNCTIONS
+// UTILITY
 // =============================================================================
 
 float fmap_safe(float x, float in_min, float in_max, float out_min, float out_max) {
@@ -188,71 +168,84 @@ bool aiPumpDecision(float soil, float level) {
 }
 
 // =============================================================================
-// FORWARD DECLARATIONS
+// WEB SOCKET EVENT HANDLER
 // =============================================================================
 
-void sendSensorUpdate();
-void registerDevice();
-void sendHeartbeat();
-void sendStatusUpdate();
+void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
+  switch (type) {
+    case WStype_DISCONNECTED:
+      deviceRegistered = false;
+      Serial.println("[WS] Disconnected");
+      break;
 
-// =============================================================================
-// SOCKET.IO EVENT HANDLERS
-// =============================================================================
+    case WStype_CONNECTED:
+      Serial.println("[WS] Connected! Registering...");
+      {
+        StaticJsonDocument<256> doc;
+        doc["type"] = "register";
+        doc["device_id"] = DEVICE_ID;
+        doc["device_name"] = DEVICE_NAME;
+        doc["firmware_version"] = FIRMWARE_VERSION;
+        doc["board_type"] = BOARD_TYPE;
+        String json;
+        serializeJson(doc, json);
+        webSocket.sendTXT(json);
+      }
+      break;
 
-void onDeviceRegistered(const char* payload, size_t length) {
-  deviceRegistered = true;
-  Serial.println("[WS] Server confirmed registration");
-}
+    case WStype_TEXT: {
+      DynamicJsonDocument doc(1024);
+      DeserializationError err = deserializeJson(doc, (char*)payload);
+      if (err) { Serial.println("[WS] Bad JSON"); return; }
 
-void onCommand(const char* payload, size_t length) {
-  // payload is the JSON data part of the event (after the event name)
-  // e.g. {"id":"...","command":"pump","params":{"state":true}}
-  DynamicJsonDocument doc(512);
-  DeserializationError err = deserializeJson(doc, payload);
-  if (err) { Serial.println("[CMD] Bad JSON"); return; }
+      String type = doc["type"].as<String>();
 
-  String cmd = doc["command"].as<String>();
-  String cmdId = doc["id"].as<String>();
-  JsonObject params = doc["params"].as<JsonObject>();
-  Serial.printf("[CMD] %s (id=%s)\n", cmd.c_str(), cmdId.c_str());
+      if (type == "device_registered") {
+        deviceRegistered = true;
+        Serial.println("[WS] Server confirmed registration");
 
-  if (cmd == "pump") {
-    pumpState = params["state"] | false;
-    digitalWrite(RELAY_PIN, pumpState ? LOW : HIGH);
-    manualOverride = true;
-    Serial.printf("[CMD] Pump -> %s\n", pumpState ? "ON" : "OFF");
+      } else if (type == "command") {
+        String cmd = doc["command"].as<String>();
+        String cmdId = doc["id"].as<String>();
+        JsonObject params = doc["params"].as<JsonObject>();
+        Serial.printf("[CMD] %s (id=%s)\n", cmd.c_str(), cmdId.c_str());
 
-  } else if (cmd == "mode") {
-    currentMode = params["mode"].as<String>();
-    if (currentMode == "AUTO") manualOverride = false;
-    Serial.printf("[CMD] Mode -> %s\n", currentMode.c_str());
+        if (cmd == "pump") {
+          pumpState = params["state"] | false;
+          digitalWrite(RELAY_PIN, pumpState ? LOW : HIGH);
+          manualOverride = true;
+          Serial.printf("[CMD] Pump -> %s\n", pumpState ? "ON" : "OFF");
 
-  } else if (cmd == "restart") {
-    Serial.println("[CMD] Restarting...");
-    delay(100);
-    ESP.restart();
+        } else if (cmd == "mode") {
+          currentMode = params["mode"].as<String>();
+          if (currentMode == "AUTO") manualOverride = false;
+          Serial.printf("[CMD] Mode -> %s\n", currentMode.c_str());
 
-  } else if (cmd == "sync") {
-    Serial.println("[CMD] Sync requested — sending sensor data");
-    sendSensorUpdate();
-  } else if (cmd == "status_update") {
-    sendStatusUpdate();
+        } else if (cmd == "restart") {
+          Serial.println("[CMD] Restarting...");
+          delay(100);
+          ESP.restart();
+
+        } else if (cmd == "sync") {
+          Serial.println("[CMD] Sync requested");
+          // Will be picked up by the next sensor update cycle
+        }
+      } else if (type == "heartbeat_ack") {
+        int pending = doc["pending_commands"] | 0;
+        if (pending > 0) {
+          Serial.printf("[WS] Heartbeat ACK — %d commands pending\n", pending);
+        }
+      }
+      break;
+    }
+
+    default:
+      break;
   }
 }
 
-void onHeartbeatAck(const char* payload, size_t length) {
-  DynamicJsonDocument doc(256);
-  DeserializationError err = deserializeJson(doc, payload);
-  if (err) return;
-  int pending = doc["pending_commands"] | 0;
-  if (pending > 0) {
-    Serial.printf("[WS] Heartbeat ACK — %d commands pending\n", pending);
-  }
-}
-
 // =============================================================================
-// SOCKET.IO MESSAGING
+// SEND HELPERS
 // =============================================================================
 
 void sendSensorUpdate() {
@@ -266,6 +259,7 @@ void sendSensorUpdate() {
   float flow = readFlow();
 
   StaticJsonDocument<512> doc;
+  doc["type"] = "sensor_update";
   doc["device_id"] = DEVICE_ID;
   doc["sensors"]["soil_moisture"] = soil;
   doc["sensors"]["ph"] = ph;
@@ -279,7 +273,7 @@ void sendSensorUpdate() {
 
   String json;
   serializeJson(doc, json);
-  socket.emit("sensor_update", json.c_str());
+  webSocket.sendTXT(json);
 
   bool aiDecision = aiPumpDecision(soil, level);
   bool finalPump = (currentMode == "MANUAL" && manualOverride) ? pumpState : aiDecision;
@@ -289,38 +283,14 @@ void sendSensorUpdate() {
     soil, ph, temp, finalPump ? "ON" : "OFF", currentMode.c_str());
 }
 
-void registerDevice() {
-  if (deviceRegistered) return;
-
-  StaticJsonDocument<256> doc;
-  doc["device_id"] = DEVICE_ID;
-  doc["device_name"] = DEVICE_NAME;
-  doc["firmware_version"] = FIRMWARE_VERSION;
-  doc["board_type"] = BOARD_TYPE;
-
-  String json;
-  serializeJson(doc, json);
-  socket.emit("register", json.c_str());
-  Serial.println("[WS] Registration sent");
-}
-
 void sendHeartbeat() {
   StaticJsonDocument<64> doc;
+  doc["type"] = "heartbeat";
   doc["device_id"] = DEVICE_ID;
 
   String json;
   serializeJson(doc, json);
-  socket.emit("heartbeat", json.c_str());
-}
-
-void sendStatusUpdate() {
-  StaticJsonDocument<128> doc;
-  doc["online"] = true;
-
-  String json;
-  serializeJson(doc, json);
-  socket.emit("status_update", json.c_str());
-  Serial.println("[CMD] Status update sent");
+  webSocket.sendTXT(json);
 }
 
 // =============================================================================
@@ -331,7 +301,6 @@ void setup() {
   Serial.begin(115200);
   Serial.println("\n=== CLIMANEER V2 - ESP32 ===");
 
-  // GPIO
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
   pinMode(RELAY_PIN, OUTPUT);
@@ -340,12 +309,10 @@ void setup() {
 
   attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), []() { flowPulseCount++; }, RISING);
 
-  // Sensors
   dht.begin();
   ds18b20.begin();
   lastFlowMeasureTime = millis();
 
-  // WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("WiFi");
   int attempts = 0;
@@ -356,22 +323,18 @@ void setup() {
     Serial.println(" CONNECTED");
     Serial.print("IP: "); Serial.println(WiFi.localIP());
   } else {
-    Serial.println(" FAILED — running offline (sensors + local AI only)");
+    Serial.println(" FAILED");
   }
 
-  // ---- Socket.IO setup using SocketIoClient library ----
-  socket.on("device_registered", onDeviceRegistered);
-  socket.on("command", onCommand);
-  socket.on("heartbeat_ack", onHeartbeatAck);
-
-  Serial.printf("Connecting to %s:%d\n", HOST, PORT);
+  // Connect to the raw WebSocket endpoint (no Socket.IO)
+  Serial.printf("Connecting to %s:%d/esp32\n", HOST, PORT);
+  webSocket.setReconnectInterval(RECONNECT_INTERVAL_MS);
   if (USE_SSL) {
-    socket.beginSSL(HOST, PORT, "/socket.io/?EIO=4&transport=websocket");
+    webSocket.beginSSL(HOST, PORT, "/esp32");
   } else {
-    socket.begin(HOST, PORT, "/socket.io/?EIO=4&transport=websocket");
+    webSocket.begin(HOST, PORT, "/esp32");
   }
-
-  Serial.println("[WS] SocketIoClient started");
+  webSocket.onEvent(webSocketEvent);
 }
 
 // =============================================================================
@@ -379,34 +342,15 @@ void setup() {
 // =============================================================================
 
 void loop() {
-  socket.loop();
+  webSocket.loop();
 
   unsigned long now = millis();
 
-  // Register device until confirmed (every 5s), then re-register every 5min
-  if (now - lastRegisterAttempt >= (deviceRegistered ? 300000UL : REGISTER_RETRY_MS)) {
-    lastRegisterAttempt = now;
-    if (!deviceRegistered) registerDevice();
-    else {
-      // Periodic re-registration in case of reconnect
-      StaticJsonDocument<256> doc;
-      doc["device_id"] = DEVICE_ID;
-      doc["device_name"] = DEVICE_NAME;
-      doc["firmware_version"] = FIRMWARE_VERSION;
-      doc["board_type"] = BOARD_TYPE;
-      String json;
-      serializeJson(doc, json);
-      socket.emit("register", json.c_str());
-    }
-  }
-
-  // Heartbeat (only after registered)
-  if (deviceRegistered && now - lastHeartbeatTime >= HEARTBEAT_INTERVAL_MS) {
+  if (now - lastHeartbeatTime >= HEARTBEAT_INTERVAL_MS) {
     lastHeartbeatTime = now;
     sendHeartbeat();
   }
 
-  // Sensor update
   if (now - lastUpdateTime >= UPDATE_INTERVAL_MS) {
     lastUpdateTime = now;
     sendSensorUpdate();

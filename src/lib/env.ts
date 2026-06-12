@@ -1,9 +1,10 @@
 // ── Socket.IO Server ──────────────────────────────────────────
-// npm run dev       → process.env.NODE_ENV = "development"  → localhost
-// npm run build+start → process.env.NODE_ENV = "production"  → Render
+// Set NEXT_PUBLIC_SOCKET_URL env var at build time to override.
+// Default: localhost:3001 (dev), climaneer-v2.onrender.com (prod)
+const defaultProdUrl = "https://climaneer-v2.onrender.com";
 export const SOCKET_URL = process.env.NODE_ENV === "development"
-  ? "http://localhost:3001"
-  : "https://climaneer-v2.onrender.com";
+  ? (process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001")
+  : (process.env.NEXT_PUBLIC_SOCKET_URL || defaultProdUrl);
 
 // ── AI Voice Command Parser (Optional) ────────────────────────
 // Provider: "gemini" | "openrouter" | ""

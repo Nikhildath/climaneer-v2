@@ -1,0 +1,44 @@
+name: Windows Electron
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "android/**"
+      - "server/**"
+      - "*.md"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install main dependencies
+        run: npm ci
+
+      - name: Build Next.js static export
+        run: node scripts/static-export.mjs
+        shell: pwsh
+
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm ci
+
+      - name: Build Windows installer
+        working-directory: electron
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish never
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: climaneer-windows
+          path: release/*.exe

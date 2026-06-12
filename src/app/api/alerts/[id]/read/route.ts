@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { storage } from "@/app/api/storage";
 
+export function generateStaticParams() {
+  return [];
+}
+
 export async function PATCH(_request: Request, { params }: { params: { id: string } }) {
   try {
     const alert = await storage.markAlertAsRead(params.id);

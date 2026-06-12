@@ -12,11 +12,16 @@
     "cap:sync": "npx cap sync",
     "cap:add:android": "npx cap add android",
     "cap:build:android": "npx cap open android",
-    "cap:build:apk": "cd android && ./gradlew assembleDebug"
+    "cap:build:apk": "cd android && ./gradlew assembleDebug",
+    "mobile:build": "node scripts/mobile-build.mjs",
+    "export": "node scripts/static-export.mjs",
+    "electron:start": "cd electron && npx electron .",
+    "electron:build": "cd electron && npx electron-builder"
   },
   "dependencies": {
     "@capacitor-community/text-to-speech": "^8.0.1",
     "@capacitor/action-sheet": "^8.1.1",
+    "@capacitor/android": "^8.4.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/browser": "^8.0.3",
     "@capacitor/camera": "^8.2.0",

@@ -93,10 +93,10 @@ export async function requestPushNotificationPermission(): Promise<boolean> {
   try {
     const { PushNotifications } = await import("@capacitor/push-notifications");
     const perm = await PushNotifications.checkPermissions();
-    if (perm.display === "denied") return false;
-    if (perm.display !== "granted") {
+    if (perm.receive === "denied") return false;
+    if (perm.receive !== "granted") {
       const result = await PushNotifications.requestPermissions();
-      return result.display === "granted";
+      return result.receive === "granted";
     }
     return true;
   } catch (e) {
@@ -106,173 +106,26 @@ export async function requestPushNotificationPermission(): Promise<boolean> {
 }
 
 export async function requestKeyboardPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { Keyboard } = await import("@capacitor/keyboard");
-    const perm = await Keyboard.isKeyboardOpen();
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Keyboard error:", e);
-    return false;
-  }
+  return true;
 }
 
 export async function requestHapticsPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { Haptics } = await import("@capacitor/haptics");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Haptics error:", e);
-    return false;
-  }
+  return true;
 }
 
 export async function requestMotionPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { Motion } = await import("@capacitor/motion");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Motion error:", e);
-    return false;
-  }
+  return true;
 }
 
-export async function requestClipboardPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { Clipboard } = await import("@capacitor/clipboard");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Clipboard error:", e);
-    return false;
-  }
-}
-
-export async function requestSharePermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { Share } = await import("@capacitor/share");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Share error:", e);
-    return false;
-  }
-}
-
-export async function requestBrowserPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { Browser } = await import("@capacitor/browser");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Browser error:", e);
-    return false;
-  }
-}
-
-export async function requestDialogPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { Dialog } = await import("@capacitor/dialog");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Dialog error:", e);
-    return false;
-  }
-}
-
-export async function requestActionSheetPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { ActionSheet } = await import("@capacitor/action-sheet");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Action Sheet error:", e);
-    return false;
-  }
-}
-
-export async function requestToastPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { Toast } = await import("@capacitor/toast");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Toast error:", e);
-    return false;
-  }
-}
-
-export async function requestPrivacyScreenPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { PrivacyScreen } = await import("@capacitor/privacy-screen");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Privacy Screen error:", e);
-    return false;
-  }
-}
-
-export async function requestScreenReaderPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { ScreenReader } = await import("@capacitor/screen-reader");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Screen Reader error:", e);
-    return false;
-  }
-}
-
-export async function requestTextZoomPermission(): Promise<boolean> {
-  if (!isCapacitorAvailable()) {
-    return true;
-  }
-
-  try {
-    const { TextZoom } = await import("@capacitor/text-zoom");
-    return true;
-  } catch (e) {
-    console.warn("[CapacitorPermissions] Text Zoom error:", e);
-    return false;
-  }
-}
+export async function requestClipboardPermission(): Promise<boolean> { return true; }
+export async function requestSharePermission(): Promise<boolean> { return true; }
+export async function requestBrowserPermission(): Promise<boolean> { return true; }
+export async function requestDialogPermission(): Promise<boolean> { return true; }
+export async function requestActionSheetPermission(): Promise<boolean> { return true; }
+export async function requestToastPermission(): Promise<boolean> { return true; }
+export async function requestPrivacyScreenPermission(): Promise<boolean> { return true; }
+export async function requestScreenReaderPermission(): Promise<boolean> { return true; }
+export async function requestTextZoomPermission(): Promise<boolean> { return true; }
 
 export async function requestAllPermissions(): Promise<Record<PermissionGroup, boolean>> {
   const [mic, loc, notif, cam, push, keyboard, haptics, motion, clipboard, share, browser, dialog, actionSheet, toast, privacyScreen, screenReader, textZoom] = await Promise.all([

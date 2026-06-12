@@ -125,8 +125,15 @@ function setESP32TimedPump(io, device_id, durationMs) {
 
 export function setupSocketHandlers(io) {
 
+  io.engine.on("connection_error", (err) => {
+    console.log(`[Socket] Engine connection_error: code=${err.code} message=${err.message} req=${err.req?.url}`);
+  });
+
   io.on("connection", (socket) => {
-    console.log(`[Socket] New connection: ${socket.id}`);
+    const transport = socket.conn.transport.name;
+    const address = socket.handshake.address;
+    const agent = socket.handshake.headers["user-agent"] || "unknown";
+    console.log(`[Socket] New connection: ${socket.id} transport=${transport} ip=${address} ua=${agent}`);
 
     socket.on("dashboard_join", () => {
       console.log(`[Socket] dashboard_join from ${socket.id}`);
@@ -573,7 +580,8 @@ export function setupSocketHandlers(io) {
       socket.emit("device_status_history_data", { device_id, statusHistory });
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (reason) => {
+      console.log(`[Socket] Disconnect: ${socket.id} reason=${reason}`);
       const device_id = devices.get(socket.id);
       if (device_id) {
         if (deviceSockets.get(device_id) === socket.id) {

@@ -61,7 +61,6 @@ jobs:
               convert "$SRC" -resize "${px}x${px}" "$dir/ic_launcher.png"
               fg_px=$(( px * 9 / 4 ))
               convert "$SRC" -resize "${fg_px}x${fg_px}" "$dir/ic_launcher_foreground.png"
-              convert "$SRC" -resize "${px}x${px}" "$dir/ic_launcher.webp"
             done
 
             mkdir -p "$RES/mipmap-anydpi-v26"

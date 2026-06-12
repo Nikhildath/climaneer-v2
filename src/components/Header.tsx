@@ -48,22 +48,23 @@ export function Header({ onSettingsClick, onRefresh, isOnline }: HeaderProps) {
         scrolled ? "glass border-b border-border/40" : ""
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="pl-4 pr-4 sm:pr-6 lg:pr-8">
         <div className="flex h-14 sm:h-16 items-center justify-between gap-2">
           <motion.div
-            className="flex items-center gap-2.5 min-w-0"
+            className="flex items-center gap-3 min-w-0"
             data-testid="brand-logo"
           >
-            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-rose-500 flex-shrink-0">
-              <Leaf className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-lg shadow-emerald-500/20 flex-shrink-0">
+              <Leaf className="h-5 w-5 text-white" />
             </div>
-            <div className="min-w-0 leading-none">
-              <div className="flex items-baseline gap-1">
-                <span className="text-sm sm:text-base font-bold tracking-tight">
+            <div className="leading-none">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-lg sm:text-xl font-bold tracking-tight">
                   <span className="gradient-text">climaneer</span>
                 </span>
-                <span className="text-[10px] font-semibold text-muted-foreground">v2</span>
+                <span className="text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">v2</span>
               </div>
+              <span className="text-[11px] text-muted-foreground/60 tracking-wide">future of farming</span>
             </div>
           </motion.div>
 

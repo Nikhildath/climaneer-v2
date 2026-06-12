@@ -169,6 +169,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         title: "New Device",
         description: `${data.device_id} registered`,
       });
+      store.setDeviceId(data.device_id);
+    });
+
+    onSocketEvent("register", (data: any) => {
+      console.log("[AppContext] Device registered via server HTML:", data);
+      store.setDeviceId(data.device_id);
     });
 
     onSocketEvent("overrides_update", (data: any) => {

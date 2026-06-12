@@ -23,6 +23,37 @@ const config: CapacitorConfig = {
       style: "DARK",
       backgroundColor: "#0a0a0f",
     },
+    Camera: {
+      permissions: ["camera", "photos"],
+    },
+    Geolocation: {
+      permissions: ["location"],
+    },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"],
+    },
+    Keyboard: {
+      resize: "body",
+      style: "DARK",
+      resizeOnFullScreen: true,
+    },
+    Haptics: {},
+    Motion: {},
+    Clipboard: {},
+    Share: {},
+    Browser: {},
+    Dialog: {},
+    ActionSheet: {},
+    Toast: {
+      duration: "short",
+    },
+    PrivacyScreen: {
+      enable: true,
+    },
+    ScreenReader: {},
+    TextZoom: {
+      enabled: true,
+    },
   },
   android: {
     permissions: [
@@ -37,7 +68,32 @@ const config: CapacitorConfig = {
       "android.permission.RECEIVE_BOOT_COMPLETED",
       "android.permission.FOREGROUND_SERVICE",
       "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+      "android.permission.CAMERA",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.MANAGE_EXTERNAL_STORAGE",
+      "android.permission.BLUETOOTH",
+      "android.permission.BLUETOOTH_ADMIN",
+      "android.permission.BLUETOOTH_CONNECT",
+      "android.permission.BLUETOOTH_SCAN",
+      "android.permission.NFC",
+      "android.permission.USE_BIOMETRIC",
+      "android.permission.USE_FINGERPRINT",
+      "android.permission.BODY_SENSORS",
+      "android.permission.ACTIVITY_RECOGNITION",
+      "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+      "android.permission.FOREGROUND_SERVICE_LOCATION",
+      "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+      "android.permission.FOREGROUND_SERVICE_CAMERA",
+      "android.permission.SCHEDULE_EXACT_ALARM",
+      "android.permission.USE_EXACT_ALARM",
     ],
+  },
+  ios: {
+    contentInset: "automatic",
+    scrollEnabled: true,
+    limitsNavigationsToAppBoundDomains: true,
+    preferredContentMode: "mobile",
   },
 };
 

@@ -1,0 +1,214 @@
+name: Build & Sign
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Target to build
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - android
+          - windows
+  push:
+    tags: [v*]
+
+env:
+  APP_ICON: public/favicon.png
+
+jobs:
+  android:
+    name: Android APK (signed)
+    if: >-
+      github.event_name == 'push' ||
+      inputs.target == 'all' ||
+      inputs.target == 'android'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install system deps
+        run: sudo apt-get install -y imagemagick
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Generate Android icons from favicon
+        run: |
+            SRC="${{ env.APP_ICON }}"
+            RES="android/app/src/main/res"
+
+            # Create all required mipmap densities
+            for size in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+              density="${size%%:*}"
+              px="${size##*:}"
+              dir="$RES/mipmap-$density"
+              mkdir -p "$dir"
+              convert "$SRC" -resize "${px}x${px}" "$dir/ic_launcher.png"
+              # Foreground for adaptive icons
+              fg_px=$(( px * 9 / 4 ))  # adaptive foreground is 108dp = 9/4 of mdpi 48px
+              convert "$SRC" -resize "${fg_px}x${fg_px}" "$dir/ic_launcher_foreground.png"
+              # Also generate WebP (modern Android prefers it)
+              convert "$SRC" -resize "${px}x${px}" "$dir/ic_launcher.webp"
+            done
+
+            # Adaptive icon XML (API 26+)
+            cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" << 'XMLEOF'
+            <?xml version="1.0" encoding="utf-8"?>
+            <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background"/>
+              <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+            </adaptive-icon>
+            XMLEOF
+
+            echo "Android icons generated from $SRC"
+
+      - name: Create signing keystore
+        env:
+          KS_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+            if [ -n "$KS_BASE64" ]; then
+              echo "$KS_BASE64" | base64 -d > android/app/release.keystore
+              echo "Using keystore from secrets"
+            else
+              keytool -genkey -v -keystore android/app/release.keystore \
+                -alias climaneer -keyalg RSA -keysize 2048 -validity 10000 \
+                -storepass climaneerCI -keypass climaneerCI \
+                -dname "CN=Climaneer CI, OU=Build, O=Climaneer, L=Unknown, ST=Unknown, C=US"
+              echo "Generated ephemeral CI keystore"
+            fi
+
+      - name: Configure Android signing in build.gradle
+        run: |
+            node -e "
+            const fs = require('fs');
+            let path = 'android/app/build.gradle';
+            let c = fs.readFileSync(path, 'utf8');
+
+            // Bail if already configured
+            if (c.includes('signingConfigs.release')) {
+              console.log('Signing already configured');
+              process.exit(0);
+            }
+
+            // Insert signingConfigs block after 'android {'
+            c = c.replace(
+              /android\s*\{/,
+              'android {\n' +
+              '    signingConfigs {\n' +
+              '        release {\n' +
+              '            storeFile file(\"release.keystore\")\n' +
+              '            storePassword System.getenv(\"ANDROID_STORE_PASSWORD\")\n' +
+              '            keyAlias System.getenv(\"ANDROID_KEY_ALIAS\")\n' +
+              '            keyPassword System.getenv(\"ANDROID_KEY_PASSWORD\")\n' +
+              '        }\n' +
+              '    }\n'
+            );
+
+            // Wire signingConfig to release buildType
+            c = c.replace(
+              /release\s*\{/,
+              'release {\n' +
+              '            signingConfig signingConfigs.release'
+            );
+
+            fs.writeFileSync(path, c);
+            console.log('build.gradle patched for release signing');
+            "
+
+      - name: Build signed release APK
+        env:
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD || 'climaneerCI' }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'climaneer' }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'climaneerCI' }}
+        run: |
+            cd android
+            chmod +x gradlew
+            ./gradlew assembleRelease
+
+      - name: Verify APK signature
+        run: |
+            apksigner verify --print-certs android/app/build/outputs/apk/release/app-release.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: climaneer-android-signed
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          compression-level: 0
+
+  windows:
+    name: Windows EXE (signed)
+    if: >-
+      github.event_name == 'push' ||
+      inputs.target == 'all' ||
+      inputs.target == 'windows'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root JS deps
+        run: npm ci
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Install server deps (bundled with Electron)
+        run: cd server && npm ci
+
+      - name: Install Electron deps
+        run: cd electron && npm ci
+
+      - name: Build signed Electron EXE
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+            cd electron
+            npx electron-builder build --win --publish=never
+
+      - name: List release artifacts
+        run: ls -lh release/ || echo "No release dir"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: climaneer-windows-exe
+          path: release/*.exe
+          if-no-files-found: error
+          compression-level: 0

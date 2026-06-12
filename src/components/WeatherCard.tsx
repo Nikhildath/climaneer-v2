@@ -86,7 +86,7 @@ export function WeatherCard() {
   const updateWeather = async (lat: number, lon: number) => {
     try {
       setLoading(true); setError(null);
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relativehumidity_2m,apparent_temperature,weathercode,windspeed_10m&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto`;
       const data = await fetchWeatherWithRetry(url);
       if (!mountedRef.current) return;
       if (!data?.current) throw new Error("Missing current data");
@@ -94,17 +94,20 @@ export function WeatherCard() {
       const daily = data.daily;
       setWeather({
         temp: Math.round(current.temperature_2m), feelsLike: Math.round(current.apparent_temperature),
-        description: WMO_CODES[current.weathercode] || "Unknown", code: current.weathercode,
-        wind: Math.round(current.windspeed_10m), humidity: current.relativehumidity_2m,
+        description: WMO_CODES[current.weather_code] || "Unknown", code: current.weather_code,
+        wind: Math.round(current.wind_speed_10m), humidity: current.relative_humidity_2m,
       });
       if (daily) {
         setForecast(daily.time.slice(1, 4).map((date: string, i: number) => ({
-          date, max: Math.round(daily.temperature_2m_max[i + 1]), min: Math.round(daily.temperature_2m_min[i + 1]), code: daily.weathercode[i + 1],
+          date, max: Math.round(daily.temperature_2m_max[i + 1]), min: Math.round(daily.temperature_2m_min[i + 1]), code: daily.weather_code[i + 1],
         })));
       }
+      const fc = daily ? daily.time.slice(1, 4).map((date: string, i: number) => ({
+        date, max: Math.round(daily.temperature_2m_max[i + 1]), min: Math.round(daily.temperature_2m_min[i + 1]), code: daily.weather_code[i + 1],
+      })) : [];
       localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({
-        data: { temp: Math.round(current.temperature_2m), feelsLike: Math.round(current.apparent_temperature), description: WMO_CODES[current.weathercode] || "Unknown", code: current.weathercode, wind: Math.round(current.windspeed_10m), humidity: current.relativehumidity_2m },
-        forecast: forecast, location: lat + "," + lon, timestamp: Date.now(),
+        data: { temp: Math.round(current.temperature_2m), feelsLike: Math.round(current.apparent_temperature), description: WMO_CODES[current.weather_code] || "Unknown", code: current.weather_code, wind: Math.round(current.wind_speed_10m), humidity: current.relative_humidity_2m },
+        forecast: fc, location: lat + "," + lon, timestamp: Date.now(),
       }));
       setIsStale(false); setError(null); setLoading(false);
     } catch (err: any) {

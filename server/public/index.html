@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>CLIMANEER Realtime DB</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -91,16 +93,41 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    .device-bar {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .device-btn {
+      background: #1c1917; color: #a1a1aa; border: 1px solid #27272a;
+      padding: 4px 12px; border-radius: 6px; font-size: 12px;
+      cursor: pointer; transition: all .15s; font-family: inherit; white-space: nowrap;
+    }
+    .device-btn:hover { background: #292524; color: #e5e7eb; }
+    .device-btn.active { background: #1c3d2e; border-color: #10b981; color: #4ade80; }
+    .device-btn .online-dot {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px;
+    }
+    .device-btn .online-dot.on { background: #4ade80; }
+    .device-btn .online-dot.off { background: #f87171; }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="brand">
-      <i class="fas fa-seedling"></i>
-      <div><h1>CLIMANEER Realtime DB</h1><span>Socket.IO • Live JSON Editor</span></div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:linear-gradient(135deg,#10b981,#047857);box-shadow:0 4px 12px rgba(16,185,129,0.25)">
+          <i class="fas fa-leaf" style="color:white;font-size:18px"></i>
+        </div>
+        <div>
+          <div style="display:flex;align-items:baseline;gap:6px">
+            <span style="font-size:18px;font-weight:700;background:linear-gradient(135deg,#10b981,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">climaneer</span>
+            <span style="font-size:10px;font-weight:600;color:#10b981;background:rgba(16,185,129,0.1);padding:1px 6px;border-radius:4px">v2</span>
+          </div>
+          <div style="font-size:11px;color:#a1a1aa;letter-spacing:0.5px">future of farming</div>
+        </div>
+      </div>
     </div>
     <div class="status-bar">
-      <span id="device-badge" style="background:#1c1917;padding:4px 12px;border-radius:6px;font-size:12px">Not registered</span>
+      <div class="device-bar" id="device-selector"></div>
       <span id="status-text"><span class="dot yellow"></span>Connecting...</span>
     </div>
   </div>
@@ -120,22 +147,16 @@
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script>
-    const CONFIG = {
-      device_name: "Farm-1",
-      device_id: "ESP32_AQUACLIMA_001",
-      firmware: "2.0.0",
-      board: "ESP32"
-    };
-
     let socket = null;
-    let treeData = { ...getDefaultData() };
+    let devicesData = {};
+    let currentDeviceId = null;
     let expanded = new Set();
     let pendingTimers = {};
 
-    function getDefaultData() {
+    function getDefaultDeviceData() {
       return {
-        device_name: CONFIG.device_name,
-        device_id: CONFIG.device_id,
+        device_id: "",
+        device_name: "",
         timestamp: Date.now(),
         sensors: {
           soil_moisture: 0, ph: 0, air_humidity: 0, air_temp: 0,
@@ -143,8 +164,42 @@
         },
         controls: { manual_override: false, pump: false, mode: "AUTO" },
         ai: { recommendation: "Awaiting data..." },
-        status: { wifi: false, socket: false, uptime: 0 }
+        status: { online: false, last_seen: null }
       };
+    }
+
+    function ensureDeviceData(device_id, device_name) {
+      if (!devicesData[device_id]) {
+        devicesData[device_id] = getDefaultDeviceData();
+        devicesData[device_id].device_id = device_id;
+      }
+      if (device_name) devicesData[device_id].device_name = device_name;
+      if (!currentDeviceId) currentDeviceId = device_id;
+    }
+
+    function selectDevice(device_id) {
+      currentDeviceId = device_id;
+      updateDeviceSelector();
+      render();
+    }
+
+    function updateDeviceSelector() {
+      const container = document.getElementById("device-selector");
+      if (!container) return;
+      const ids = Object.keys(devicesData);
+      if (ids.length === 0) {
+        container.innerHTML = '<span style="color:#52525b;font-size:12px">No devices</span>';
+        return;
+      }
+      container.innerHTML = ids.map(id => {
+        const dev = devicesData[id];
+        const active = id === currentDeviceId ? "active" : "";
+        const online = dev.status.online ? "on" : "off";
+        const label = dev.device_name || id;
+        return '<button class="device-btn ' + active + '" onclick="selectDevice(\'' + id + '\')">' +
+          '<span class="online-dot ' + online + '"></span>' + label +
+        '</button>';
+      }).join("");
     }
 
     function toast(msg, type = "success") {
@@ -223,7 +278,10 @@
     }
 
     function render() {
-      document.getElementById("tree").innerHTML = buildTree(treeData, "", 0);
+      const dev = currentDeviceId ? devicesData[currentDeviceId] : null;
+      document.getElementById("tree").innerHTML = dev
+        ? buildTree(dev, "", 0)
+        : '<div style="padding:24px;color:#71717a">No device selected. Waiting for data...</div>';
     }
 
     function toggleNode(path) {
@@ -265,9 +323,11 @@
 
     function editValue(path, event) {
       event.stopPropagation();
+      const dev = currentDeviceId ? devicesData[currentDeviceId] : null;
+      if (!dev) return;
       const row = event.target.closest(".node-row");
       if (!row) return;
-      const currentVal = getNestedValue(treeData, path);
+      const currentVal = getNestedValue(dev, path);
 
       const span = event.target;
       const isStr = typeof currentVal === "string";
@@ -295,7 +355,7 @@
 
         if (Number.isNaN(newVal)) newVal = 0;
 
-        setNestedValue(treeData, path, newVal);
+        setNestedValue(dev, path, newVal);
         emitChange(path, newVal);
         render();
       };
@@ -304,7 +364,7 @@
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") { input.blur(); }
         if (e.key === "Escape") {
-          setNestedValue(treeData, path, currentVal);
+          setNestedValue(dev, path, currentVal);
           render();
         }
       });
@@ -312,72 +372,63 @@
 
     function emitChange(path, value) {
       if (!socket || !socket.connected) { toast("Socket not connected", "error"); return; }
+      if (!currentDeviceId) { toast("No device selected", "error"); return; }
 
       const parts = path.split(".");
       const top = parts[0];
+      const did = currentDeviceId;
 
       if (top === "sensors") {
-        const sensors = treeData.sensors;
-        const payload = { ...sensors };
-        for (const k of Object.keys(payload)) {
-          if (typeof payload[k] === "number" && Number.isNaN(payload[k])) payload[k] = 0;
-        }
-        socket.emit("sensor_update", { sensors: payload });
-        log(`sensor_update sent`, "out");
-        toast("Sensors updated");
+        const sensor_key = parts[1];
+        socket.emit("override_sensor", {
+          device_id: did,
+          sensor_key: sensor_key,
+          value: value,
+          enabled: true
+        });
+        log(`override_sensor: ${did} ${sensor_key}=${value}`, "out");
+        toast(`Override ${sensor_key} = ${value}`);
       } else if (top === "controls") {
         if (parts[1] === "pump") {
-          socket.emit("command", { device_id: CONFIG.device_id, command: "pump", params: { state: !!value } });
-          log(`command: pump=${!!value}`, "out");
+          socket.emit("command", { device_id: did, command: "pump", params: { state: !!value } });
+          log(`command: pump=${!!value} for ${did}`, "out");
           toast(`Pump ${value ? "ON" : "OFF"}`);
         } else if (parts[1] === "mode") {
-          socket.emit("command", { device_id: CONFIG.device_id, command: "mode", params: { mode: value } });
-          log(`command: mode=${value}`, "out");
+          socket.emit("command", { device_id: did, command: "mode", params: { mode: value } });
+          log(`command: mode=${value} for ${did}`, "out");
           toast(`Mode: ${value}`);
-        } else if (parts[1] === "manual_override") {
-          const mode = value ? "MANUAL" : "AUTO";
-          socket.emit("command", { device_id: CONFIG.device_id, command: "mode", params: { mode } });
-          treeData.controls.mode = mode;
-          log(`command: manual_override=${value} (mode=${mode})`, "out");
-          toast(`Manual override ${value ? "ON" : "OFF"}`);
         }
       } else if (top === "ai") {
-        socket.emit("override_ai", { device_id: CONFIG.device_id, recommendation: value });
-        log(`override_ai sent`, "out");
+        socket.emit("override_ai", { device_id: did, recommendation: value });
+        log(`override_ai sent for ${did}`, "out");
         toast("AI recommendation updated");
-      } else if (top === "device_name" || top === "device_id") {
-        toast("Device identity cannot be changed via realtime", "error");
+      } else if (top === "device_name") {
+        socket.emit("rename_device", { device_id: did, device_name: value });
+        log(`rename_device: ${did} -> ${value}`, "out");
+        toast(`Device renamed to ${value}`);
       }
     }
 
     function sendPump(state) {
-      if (!socket || !socket.connected) { toast("Not connected", "error"); return; }
-      treeData.controls.pump = state;
-      if (state) treeData.controls.manual_override = true;
-      socket.emit("command", { device_id: CONFIG.device_id, command: "pump", params: { state } });
-      log(`command: pump=${state}`, "out");
-      render();
+      if (!socket || !socket.connected || !currentDeviceId) { toast("Not connected", "error"); return; }
+      socket.emit("command", { device_id: currentDeviceId, command: "pump", params: { state } });
+      log(`command: pump=${state} for ${currentDeviceId}`, "out");
       toast(state ? "Pump started" : "Pump stopped");
     }
 
     function sendMode(mode) {
-      if (!socket || !socket.connected) { toast("Not connected", "error"); return; }
-      treeData.controls.mode = mode;
-      treeData.controls.manual_override = mode === "MANUAL";
-      socket.emit("command", { device_id: CONFIG.device_id, command: "mode", params: { mode } });
-      log(`command: mode=${mode}`, "out");
-      render();
+      if (!socket || !socket.connected || !currentDeviceId) { toast("Not connected", "error"); return; }
+      socket.emit("command", { device_id: currentDeviceId, command: "mode", params: { mode } });
+      log(`command: mode=${mode} for ${currentDeviceId}`, "out");
       toast(`Mode: ${mode}`);
     }
 
     function updateStatus(connected) {
-      const dot = document.querySelector("#status-text .dot");
       const text = document.getElementById("status-text");
       if (connected) {
-        text.innerHTML = `<span class="dot green"></span> <span class="connected">Connected</span>`;
-        document.getElementById("device-badge").textContent = CONFIG.device_id;
+        text.innerHTML = '<span class="dot green"></span> <span class="connected">Connected</span>';
       } else {
-        text.innerHTML = `<span class="dot red"></span> <span class="disconnected">Disconnected</span>`;
+        text.innerHTML = '<span class="dot red"></span> <span class="disconnected">Disconnected</span>';
       }
     }
 
@@ -392,42 +443,41 @@
       socket.on("connect", () => {
         updateStatus(true);
         log(`Connected (${socket.id})`, "in");
-        socket.emit("register", {
-          device_name: CONFIG.device_name,
-          device_id: CONFIG.device_id,
-          firmware_version: CONFIG.firmware,
-          board_type: CONFIG.board
-        });
-        log("register sent", "out");
-        treeData.status.socket = true;
-        render();
+        socket.emit("dashboard_join");
+        log("dashboard_join sent", "out");
       });
 
-      socket.on("device_registered", (data) => {
-        log(`Registered: ${data.device_id}`, "in");
-        toast("Device registered on server");
-        treeData.status.socket = true;
+      socket.on("device_list", (devices) => {
+        log(`device_list received: ${devices.length} devices`, "in");
+        for (const device of devices) {
+          ensureDeviceData(device.device_id, device.device_name);
+        }
+        updateDeviceSelector();
         render();
       });
 
       socket.on("sensor_update", (data) => {
-        log(`sensor_update received`, "in");
+        log(`sensor_update received for ${data.device_id}`, "in");
+        ensureDeviceData(data.device_id, data.device_name);
+        const dev = devicesData[data.device_id];
         if (data.sensors) {
-          Object.assign(treeData.sensors, data.sensors);
+          Object.assign(dev.sensors, data.sensors);
         }
-        treeData.timestamp = Date.now();
-        if (data.pump !== undefined) treeData.controls.pump = data.pump;
-        if (data.mode) treeData.controls.mode = data.mode;
-        if (data.manual_override !== undefined) treeData.controls.manual_override = data.manual_override;
-        if (data.device_name) treeData.device_name = data.device_name;
+        dev.timestamp = Date.now();
+        if (data.pump !== undefined) dev.controls.pump = data.pump;
+        if (data.mode) dev.controls.mode = data.mode;
+        if (data.manual_override !== undefined) dev.controls.manual_override = data.manual_override;
+        updateDeviceSelector();
         render();
       });
 
       socket.on("controls_update", (data) => {
-        log(`controls_update received`, "in");
-        if (data.pump !== undefined) treeData.controls.pump = data.pump;
-        if (data.mode) treeData.controls.mode = data.mode;
-        if (data.manual_override !== undefined) treeData.controls.manual_override = data.manual_override;
+        log(`controls_update received for ${data.device_id}`, "in");
+        ensureDeviceData(data.device_id);
+        const dev = devicesData[data.device_id];
+        if (data.pump !== undefined) dev.controls.pump = data.pump;
+        if (data.mode) dev.controls.mode = data.mode;
+        if (data.manual_override !== undefined) dev.controls.manual_override = data.manual_override;
         render();
       });
 
@@ -436,19 +486,33 @@
       });
 
       socket.on("device_status", (data) => {
-        treeData.status.wifi = data.online;
-        if (data.last_seen) treeData.timestamp = new Date(data.last_seen).getTime();
-        render();
-      });
-
-      socket.on("heartbeat_ack", (data) => {
-        treeData.status.uptime = 0;
+        ensureDeviceData(data.device_id, data.device_name);
+        const dev = devicesData[data.device_id];
+        dev.status.online = data.online;
+        if (data.last_seen) dev.timestamp = new Date(data.last_seen).getTime();
+        updateDeviceSelector();
         render();
       });
 
       socket.on("ai_recommendation", (data) => {
-        if (data.recommendation) treeData.ai.recommendation = data.recommendation;
-        render();
+        if (data.device_id && data.recommendation) {
+          ensureDeviceData(data.device_id, data.device_name);
+          devicesData[data.device_id].ai.recommendation = data.recommendation;
+          render();
+        }
+      });
+
+      socket.on("overrides_update", (data) => {
+        log(`overrides_update for ${data.device_id}: active=${data.override_active}`, "in");
+      });
+
+      socket.on("device_disconnected", (data) => {
+        log(`device_disconnected: ${data.device_id}`, "in");
+        if (data.device_id && devicesData[data.device_id]) {
+          devicesData[data.device_id].status.online = false;
+          updateDeviceSelector();
+          render();
+        }
       });
 
       socket.on("connect_error", (err) => {
@@ -458,7 +522,6 @@
 
       socket.on("disconnect", () => {
         updateStatus(false);
-        treeData.status.socket = false;
         log("Disconnected", "in");
         render();
       });
@@ -468,11 +531,13 @@
       render();
       connect();
 
-      // Heartbeat to update timestamp
       setInterval(() => {
         if (socket && socket.connected) {
-          treeData.timestamp = Date.now();
-          render();
+          const dev = currentDeviceId ? devicesData[currentDeviceId] : null;
+          if (dev) {
+            dev.timestamp = Date.now();
+            render();
+          }
         }
       }, 5000);
     });

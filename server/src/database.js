@@ -206,6 +206,10 @@ export function updateDeviceLastSeen(device_id) {
   run("UPDATE devices SET last_seen = datetime('now','localtime'), online_status = 1, updated_at = datetime('now','localtime') WHERE device_id = ?", [device_id]);
 }
 
+export function updateDeviceName(device_id, device_name) {
+  run("UPDATE devices SET device_name = ?, updated_at = datetime('now','localtime') WHERE device_id = ?", [device_name, device_id]);
+}
+
 export function storeSensorReading(device_id, sensors) {
   run(
     `INSERT INTO sensor_history (device_id, soil_moisture, ph, air_humidity, air_temp, water_temp, water_level, air_quality, flow, battery)

@@ -1,6 +1,6 @@
 import {
   registerDevice, getDevice, getAllDevices, setDeviceOffline,
-  updateDeviceLastSeen, storeSensorReading, upsertControls,
+  updateDeviceLastSeen, updateDeviceName, storeSensorReading, upsertControls,
   getControls, storeAIRecommendation, getLatestAI,
   setOverride, getActiveOverrides, getAllOverrides,
   addCommand, getPendingCommands, addEvent,
@@ -373,6 +373,29 @@ export function setupSocketHandlers(io) {
         });
         addEvent(device_id, "mode_change", { mode });
         console.log(`[Socket] Mode set to ${mode} with manual_override=0`);
+      } else if (command === "sync") {
+        addEvent(device_id, "sync_requested", {});
+        broadcastDeviceList(io);
+        broadcastDeviceStatus(io, device_id);
+        broadcastEffectiveSensors(io, device_id);
+        broadcastControls(io, device_id);
+        console.log(`[Socket] Sync requested for ${device_id}`);
+      } else if (command === "restart") {
+        addEvent(device_id, "restart_requested", {});
+        broadcastDeviceStatus(io, device_id);
+        console.log(`[Socket] Restart requested for ${device_id}`);
+      } else if (command === "status_update") {
+        const currentDevice = getDevice(device_id);
+        const wasOnline = currentDevice?.online_status ? true : false;
+        if (wasOnline) {
+          setDeviceOffline(device_id);
+        } else {
+          updateDeviceLastSeen(device_id);
+        }
+        broadcastDeviceStatus(io, device_id);
+        broadcastDeviceList(io);
+        addEvent(device_id, "status_change", { online: !wasOnline });
+        console.log(`[Socket] Status toggled for ${device_id}: ${wasOnline ? "offline" : "online"}`);
       }
 
       const updatedControls = getControls(device_id);
@@ -493,6 +516,21 @@ export function setupSocketHandlers(io) {
       addEvent(device_id, "ai_override", { recommendation: rec });
 
       console.log(`[Socket] AI override for ${device_id}: ${rec}`);
+    });
+
+    socket.on("rename_device", (data) => {
+      const { device_id, device_name } = data;
+      if (!device_id || !device_name) {
+        socket.emit("error", { message: "device_id and device_name are required" });
+        return;
+      }
+
+      updateDeviceName(device_id, device_name);
+      broadcastDeviceList(io);
+      broadcastDeviceStatus(io, device_id);
+
+      addEvent(device_id, "device_renamed", { device_name });
+      console.log(`[Socket] Device ${device_id} renamed to ${device_name}`);
     });
 
     socket.on("get_history", (data) => {

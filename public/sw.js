@@ -1,5 +1,5 @@
 const CACHE = "climaneer-v1";
-const PRECACHE_URLS = ["/", "/manifest.json", "/icon.svg"];
+const PRECACHE_URLS = ["/", "/manifest.json", "/icon.svg", "/favicon.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

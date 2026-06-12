@@ -14,9 +14,16 @@ const app = express();
 const httpServer = createServer(app);
 
 const corsOrigins = CORS_ORIGIN.split(",").map(s => s.trim()).filter(Boolean);
+const allowAll = corsOrigins.includes("*");
 const io = new Server(httpServer, {
   cors: {
-    origin: corsOrigins,
+    origin: allowAll ? "*" : (origin, callback) => {
+      if (!origin || corsOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST"],
   },
   pingInterval: WS_PING_INTERVAL,

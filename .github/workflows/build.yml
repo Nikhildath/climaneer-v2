@@ -15,9 +15,6 @@ on:
   push:
     tags: [v*]
 
-env:
-  APP_ICON: public/favicon.png
-
 jobs:
   android:
     name: Android APK (signed)
@@ -35,7 +32,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - uses: actions/setup-java@v4
@@ -51,35 +48,23 @@ jobs:
       - name: Install JS deps
         run: npm ci
 
-      - name: Build Next.js
-        run: npm run build
-
-      - name: Sync Capacitor
-        run: npx cap sync
-
-      - name: Add Android platform
-        run: npx cap add android
-
       - name: Generate Android icons from favicon
         run: |
-            SRC="${{ env.APP_ICON }}"
+            SRC="public/favicon.png"
             RES="android/app/src/main/res"
 
-            # Create all required mipmap densities
             for size in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
               density="${size%%:*}"
               px="${size##*:}"
               dir="$RES/mipmap-$density"
               mkdir -p "$dir"
               convert "$SRC" -resize "${px}x${px}" "$dir/ic_launcher.png"
-              # Foreground for adaptive icons
-              fg_px=$(( px * 9 / 4 ))  # adaptive foreground is 108dp = 9/4 of mdpi 48px
+              fg_px=$(( px * 9 / 4 ))
               convert "$SRC" -resize "${fg_px}x${fg_px}" "$dir/ic_launcher_foreground.png"
-              # Also generate WebP (modern Android prefers it)
               convert "$SRC" -resize "${px}x${px}" "$dir/ic_launcher.webp"
             done
 
-            # Adaptive icon XML (API 26+)
+            mkdir -p "$RES/mipmap-anydpi-v26"
             cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" << 'XMLEOF'
             <?xml version="1.0" encoding="utf-8"?>
             <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -88,7 +73,7 @@ jobs:
             </adaptive-icon>
             XMLEOF
 
-            echo "Android icons generated from $SRC"
+            echo "Android icons generated"
 
       - name: Create signing keystore
         env:
@@ -105,43 +90,8 @@ jobs:
               echo "Generated ephemeral CI keystore"
             fi
 
-      - name: Configure Android signing in build.gradle
-        run: |
-            node -e "
-            const fs = require('fs');
-            let path = 'android/app/build.gradle';
-            let c = fs.readFileSync(path, 'utf8');
-
-            // Bail if already configured
-            if (c.includes('signingConfigs.release')) {
-              console.log('Signing already configured');
-              process.exit(0);
-            }
-
-            // Insert signingConfigs block after 'android {'
-            c = c.replace(
-              /android\s*\{/,
-              'android {\n' +
-              '    signingConfigs {\n' +
-              '        release {\n' +
-              '            storeFile file(\"release.keystore\")\n' +
-              '            storePassword System.getenv(\"ANDROID_STORE_PASSWORD\")\n' +
-              '            keyAlias System.getenv(\"ANDROID_KEY_ALIAS\")\n' +
-              '            keyPassword System.getenv(\"ANDROID_KEY_PASSWORD\")\n' +
-              '        }\n' +
-              '    }\n'
-            );
-
-            // Wire signingConfig to release buildType
-            c = c.replace(
-              /release\s*\{/,
-              'release {\n' +
-              '            signingConfig signingConfigs.release'
-            );
-
-            fs.writeFileSync(path, c);
-            console.log('build.gradle patched for release signing');
-            "
+      - name: Build static export & sync Capacitor
+        run: node scripts/mobile-build.mjs
 
       - name: Build signed release APK
         env:
@@ -151,7 +101,7 @@ jobs:
         run: |
             cd android
             chmod +x gradlew
-            ./gradlew assembleRelease
+            ./gradlew assembleRelease --no-daemon
 
       - name: Verify APK signature
         run: |
@@ -173,21 +123,21 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        shell: bash
+        shell: pwsh
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install root JS deps
         run: npm ci
 
-      - name: Build Next.js
-        run: npm run build
+      - name: Build Next.js static export
+        run: node scripts/static-export.mjs
 
       - name: Install server deps (bundled with Electron)
         run: cd server && npm ci
@@ -195,16 +145,24 @@ jobs:
       - name: Install Electron deps
         run: cd electron && npm ci
 
-      - name: Build signed Electron EXE
+      - name: Verify static export exists
+        run: |
+            if (-not (Test-Path "out/index.html")) {
+              Write-Error "out/index.html not found — build failed"
+              exit 1
+            }
+
+      - name: Build signed Windows EXE
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
             cd electron
             npx electron-builder build --win --publish=never
 
       - name: List release artifacts
-        run: ls -lh release/ || echo "No release dir"
+        run: Get-ChildItem -Path release -Recurse -ErrorAction SilentlyContinue | Select-Object Name, Length
 
       - uses: actions/upload-artifact@v4
         with:

@@ -8,6 +8,15 @@ on:
       - "server/**"
       - "*.md"
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Build type"
+        required: true
+        default: debug
+        type: choice
+        options:
+          - debug
+          - release
 
 jobs:
   build:
@@ -17,7 +26,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -35,17 +44,36 @@ jobs:
       - name: Accept Android licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
+      - name: Create keystore (release only)
+        if: github.event.inputs.build_type == 'release'
+        run: |
+          keytool -genkey -v -keystore android/app/climaneer.keystore \
+            -alias climaneer -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -keypass "${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            -dname "CN=Climaneer, OU=Dev, O=Climaneer, L=City, S=State, C=US"
+
       - name: Build static export & sync Capacitor
         run: node scripts/mobile-build.mjs
 
       - name: Build APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'climaneer' }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || '' }}
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
+            ./gradlew assembleRelease --no-daemon
+          else
+            ./gradlew assembleDebug --no-daemon
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: climaneer-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: climaneer-apk-${{ github.event.inputs.build_type || 'debug' }}
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/release/*.apk

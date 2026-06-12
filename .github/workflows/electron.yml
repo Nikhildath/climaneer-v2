@@ -8,6 +8,12 @@ on:
       - "server/**"
       - "*.md"
   workflow_dispatch:
+    inputs:
+      sign:
+        description: "Code sign the installer"
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -17,7 +23,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install main dependencies
@@ -31,11 +37,30 @@ jobs:
         working-directory: electron
         run: npm ci
 
+      - name: Verify static export exists
+        run: |
+          if (-not (Test-Path "out/index.html")) {
+            Write-Error "out/index.html not found — build failed"
+            exit 1
+          }
+        shell: pwsh
+
       - name: Build Windows installer
         working-directory: electron
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win --publish never
+          CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_PATH || '' }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
+        run: |
+          if ("${{ github.event.inputs.sign }}" -eq "true") {
+            npx electron-builder --win --publish never
+          } else {
+            npx electron-builder --win --publish never --config.win.certificateFile=""
+          }
+
+      - name: List build output
+        run: Get-ChildItem -Path release -Recurse -ErrorAction SilentlyContinue | Select-Object Name, Length
+        shell: pwsh
 
       - name: Upload installer
         uses: actions/upload-artifact@v4

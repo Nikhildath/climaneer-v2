@@ -16,12 +16,11 @@
     "files": [
       "main.js",
       "../server/**/*",
-      "../public/**/*",
-      "../.next/**/*"
+      "../out/**/*"
     ],
     "win": {
       "target": ["nsis"],
-      "icon": "../public/favicon.png"
+      "icon": "../public/favicon.ico"
     },
     "nsis": {
       "oneClick": false,

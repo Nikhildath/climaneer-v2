@@ -193,17 +193,41 @@ async function start() {
         // Send full device list
         sendJSON({ type: "device_list", devices: getAllDevices() });
 
-        // Send current status of all devices
+        // Send current status + sensor data of all devices
         const allDevices = getAllDevices();
         for (const device of allDevices) {
           const d = getDevice(device.device_id);
+          const isOnline = esp32Connections.has(device.device_id);
           sendJSON({
             type: "device_status",
             device_id: device.device_id,
             device_name: d?.device_name || device.device_name,
-            online: !!esp32Connections.has(device.device_id),
+            online: isOnline,
             last_seen: d?.last_seen || null,
           });
+
+          // Send current sensor data from Firebase tree
+          const treeSensors = getAtPath(`devices/${device.device_id}/sensors`);
+          const overrides = getAtPath(`devices/${device.device_id}/overrides`) || {};
+          if (treeSensors && Object.keys(treeSensors).length > 0) {
+            const effectiveSensors = { ...treeSensors };
+            let hasOverride = false;
+            for (const [key, ov] of Object.entries(overrides)) {
+              if (ov.enabled && key in effectiveSensors) {
+                effectiveSensors[key] = ov.value;
+                hasOverride = true;
+              }
+            }
+            sendJSON({
+              type: "sensor_update",
+              device_id: device.device_id,
+              device_name: d?.device_name || device.device_name,
+              sensors: effectiveSensors,
+              effective: hasOverride,
+              real_sensors: hasOverride ? treeSensors : null,
+              timestamp: new Date().toISOString(),
+            });
+          }
         }
         return;
       }
@@ -312,13 +336,34 @@ async function start() {
         if (msg.type === "override_sensor") {
           const { device_id, sensor_key, value, enabled } = msg;
           if (device_id && sensor_key) {
+            // Update the override in the tree
+            setAtPath(`devices/${device_id}/overrides/${sensor_key}`, {
+              value,
+              enabled: !!enabled,
+              updated_at: new Date().toISOString(),
+            });
             setAtPath(`devices/${device_id}/sensors/${sensor_key}`, value);
+
+            // Get current real sensors from tree
+            const currentSensors = getAtPath(`devices/${device_id}/sensors`) || {};
+            const overrides = getAtPath(`devices/${device_id}/overrides`) || {};
+
+            // Build effective sensors (apply enabled overrides)
+            const effectiveSensors = { ...currentSensors };
+            for (const [key, ov] of Object.entries(overrides)) {
+              if (ov.enabled && key in effectiveSensors) {
+                effectiveSensors[key] = ov.value;
+              }
+            }
+
+            // Broadcast effective sensors to dashboard
             broadcastToDashboard({
               type: "sensor_update",
               device_id,
-              sensors: getAtPath(`devices/${device_id}/sensors`) || {},
-              effective: !!enabled,
-              real_sensors: null,
+              device_name: (getDevice(device_id) || {}).device_name || "Unknown",
+              sensors: effectiveSensors,
+              effective: true,
+              real_sensors: currentSensors,
               timestamp: new Date().toISOString(),
             });
           }

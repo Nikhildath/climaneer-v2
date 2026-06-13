@@ -215,7 +215,8 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
           pumpState = params["state"] | false;
           digitalWrite(RELAY_PIN, pumpState ? LOW : HIGH);
           manualOverride = true;
-          Serial.printf("[CMD] Pump -> %s\n", pumpState ? "ON" : "OFF");
+          currentMode = "MANUAL";
+          Serial.printf("[CMD] Pump -> %s (manual)\n", pumpState ? "ON" : "OFF");
 
         } else if (cmd == "mode") {
           currentMode = params["mode"].as<String>();

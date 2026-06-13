@@ -259,6 +259,18 @@ async function start() {
 
           // Update Firebase-like JSON tree
           setAtPath(`devices/${deviceId}/sensors`, validated);
+
+          // Apply active overrides to build effective sensors
+          const deviceOverrides = getAtPath(`devices/${deviceId}/overrides`) || {};
+          const effectiveSensors = { ...validated };
+          let hasOverride = false;
+          for (const [key, ov] of Object.entries(deviceOverrides)) {
+            if (ov.enabled && key in effectiveSensors) {
+              effectiveSensors[key] = ov.value;
+              hasOverride = true;
+            }
+          }
+
           setAtPath(`devices/${deviceId}/controls`, {
             manual_override: !!controls.manual_override,
             pump: pumpShouldRun,
@@ -273,10 +285,10 @@ async function start() {
             type: "sensor_update",
             device_id: deviceId,
             device_name: (getDevice(deviceId) || {}).device_name || "Unknown",
-            sensors: validated,
-            effective: false,
-            real_sensors: null,
-            pump: !!controls.pump,
+            sensors: effectiveSensors,
+            effective: hasOverride,
+            real_sensors: hasOverride ? validated : null,
+            pump: pumpShouldRun,
             mode: controls.mode || "AUTO",
             manual_override: !!controls.manual_override,
             timestamp: new Date().toISOString(),
@@ -315,6 +327,24 @@ async function start() {
           const { device_id, command, params } = msg;
           if (!device_id || !command) return;
           const cmd = addCommand(device_id, command, params || {}, "dashboard");
+
+          // Update controls in DB when pump or mode command received
+          const currentControls = getControls(device_id) || { manual_override: 0, pump: 0, mode: "AUTO" };
+          if (command === "pump") {
+            upsertControls(device_id, {
+              manual_override: 1,
+              pump: params?.state ? 1 : 0,
+              mode: "MANUAL",
+            });
+          } else if (command === "mode") {
+            const newMode = params?.mode || "AUTO";
+            upsertControls(device_id, {
+              manual_override: newMode === "MANUAL" ? 1 : 0,
+              pump: currentControls.pump || 0,
+              mode: newMode,
+            });
+          }
+
           const sent = sendToESP32(device_id, { type: "command", id: cmd.id, command, params: params || {} });
           console.log(`[Dashboard] Command ${command} -> ${device_id} (${sent ? "sent" : "device offline"})`);
           sendJSON({ type: "command_status", device_id, command, status: sent ? "sent" : "queued" });
@@ -336,13 +366,12 @@ async function start() {
         if (msg.type === "override_sensor") {
           const { device_id, sensor_key, value, enabled } = msg;
           if (device_id && sensor_key) {
-            // Update the override in the tree
+            // Store override separately — don't touch real sensors
             setAtPath(`devices/${device_id}/overrides/${sensor_key}`, {
               value,
               enabled: !!enabled,
               updated_at: new Date().toISOString(),
             });
-            setAtPath(`devices/${device_id}/sensors/${sensor_key}`, value);
 
             // Get current real sensors from tree
             const currentSensors = getAtPath(`devices/${device_id}/sensors`) || {};

@@ -496,8 +496,8 @@
         setNested(dev,input.dataset.path,newVal);
         // Send override to server
         var parts=input.dataset.path.split("/");
-        if(parts[1]==="sensors"&&parts.length===3){
-          wsSend({type:"override_sensor",device_id:selectedId,sensor_key:parts[2],value:newVal,enabled:true});
+        if(parts[0]==="sensors"&&parts.length===2){
+          wsSend({type:"override_sensor",device_id:selectedId,sensor_key:parts[1],value:newVal,enabled:true});
         }
         renderTree();
         toast("Updated "+parts[parts.length-1]);

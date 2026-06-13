@@ -60,7 +60,7 @@ interface SensorState {
 
   setConnected: (connected: boolean) => void;
   setDeviceId: (id: string) => void;
-  setSensorData: (data: { sensors: SensorDataMap; effective: boolean; real_sensors: SensorDataMap | null; device_id: string }) => void;
+  setSensorData: (data: { sensors: SensorDataMap; effective: boolean; real_sensors: SensorDataMap | null; device_id: string; device_name?: string }) => void;
   setAIRecommendation: (rec: string) => void;
   setControls: (controls: { manual_override: boolean; pump: boolean; mode: string }) => void;
   setDevices: (devices: DeviceInfo[]) => void;

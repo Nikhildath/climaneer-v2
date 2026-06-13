@@ -140,6 +140,23 @@ export const useSensorStore = create<SensorState>((set, get) => ({
       ? { pump: !!(data as any).pump, mode: (data as any).mode || "AUTO", manual_override: !!(data as any).manual_override }
       : state.controls;
 
+    // Ensure device is in the devices list
+    const devExists = state.devices.some((d) => d.device_id === data.device_id);
+    const newDevices = devExists
+      ? state.devices.map((d) =>
+          d.device_id === data.device_id
+            ? { ...d, online_status: 1, last_seen: new Date().toISOString(), device_name: data.device_name || d.device_name }
+            : d
+        )
+      : [...state.devices, {
+          device_id: data.device_id,
+          device_name: data.device_name || data.device_id,
+          firmware_version: "",
+          board_type: "ESP32",
+          last_seen: new Date().toISOString(),
+          online_status: 1,
+        }];
+
     set({
       effectiveSensors: data.effective ? sensors : null,
       realSensors: data.real_sensors || (data.effective ? null : sensors),
@@ -147,6 +164,7 @@ export const useSensorStore = create<SensorState>((set, get) => ({
       sensorTrends: newTrends,
       deviceId: data.device_id,
       controls: newControls,
+      devices: newDevices,
       history: [newHistory, ...state.history].slice(0, 1000),
       trendData: {
         timestamps: newTimestamps,
@@ -167,11 +185,27 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   setDevices: (devices) => set({ devices }),
 
   setDeviceOnline: ({ device_id, online }) => {
-    set((state) => ({
-      devices: state.devices.map((d) =>
-        d.device_id === device_id ? { ...d, online_status: online ? 1 : 0 } : d
-      ),
-    }));
+    set((state) => {
+      const exists = state.devices.some((d) => d.device_id === device_id);
+      if (exists) {
+        return {
+          devices: state.devices.map((d) =>
+            d.device_id === device_id ? { ...d, online_status: online ? 1 : 0 } : d
+          ),
+        };
+      }
+      // Device not in list yet — add it
+      return {
+        devices: [...state.devices, {
+          device_id,
+          device_name: device_id,
+          firmware_version: "",
+          board_type: "ESP32",
+          last_seen: new Date().toISOString(),
+          online_status: online ? 1 : 0,
+        }],
+      };
+    });
   },
 
   addSensorTrend: (reading) => {

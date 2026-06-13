@@ -7,7 +7,7 @@ import { PWARegister } from "@/components/PWARegister";
 export const metadata: Metadata = {
   title: "climaneer v2 — Smart Agriculture Dashboard",
   description:
-    "climaneer v2 is a real-time smart agriculture dashboard monitoring soil moisture, air humidity, temperature, pH levels, water level, and air quality via Socket.IO.",
+    "climaneer v2 is a real-time smart agriculture dashboard monitoring soil moisture, air humidity, temperature, pH levels, water level, and air quality via WebSocket.",
   keywords: ["smart agriculture", "IoT", "sensor dashboard", "soil moisture", "climaneer"],
   manifest: "/manifest.json",
   icons: {

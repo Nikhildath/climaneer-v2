@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { useSensorStore } from "@/store/sensor-store";
 import { emitSocket, getSocket } from "@/lib/socket-client";
-import { SOCKET_URL } from "@/lib/env";
+import { WS_URL } from "@/lib/env";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wrench, Bug, SlidersHorizontal, RefreshCw, Send,
@@ -272,7 +272,7 @@ export default function DeveloperPage() {
             <div className="p-3 rounded-xl bg-muted/30"><p className="text-xs text-muted-foreground/70 mb-1">Active Device</p><p className="font-semibold text-foreground/80">{deviceId || "None"}</p></div>
             <div className="p-3 rounded-xl bg-muted/30"><p className="text-xs text-muted-foreground/70 mb-1">Socket Connected</p><p className="font-semibold text-foreground/80">{connected ? "Yes" : "No"}</p></div>
             <div className="p-3 rounded-xl bg-muted/30"><p className="text-xs text-muted-foreground/70 mb-1">Testing Mode</p><p className="font-semibold text-foreground/80">{isTestingMode ? "Active" : "Inactive"}</p></div>
-            <div className="p-3 rounded-xl bg-muted/30"><p className="text-xs text-muted-foreground/70 mb-1">Server</p><p className="font-semibold text-foreground/80" style={{ wordBreak: "break-all" }}>{SOCKET_URL}</p></div>
+            <div className="p-3 rounded-xl bg-muted/30"><p className="text-xs text-muted-foreground/70 mb-1">Server</p><p className="font-semibold text-foreground/80" style={{ wordBreak: "break-all" }}>{WS_URL}</p></div>
           </div>
         </Card>
       </motion.div>

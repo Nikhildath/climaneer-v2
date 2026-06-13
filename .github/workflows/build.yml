@@ -102,6 +102,11 @@ jobs:
             chmod +x gradlew
             ./gradlew assembleRelease --no-daemon
 
+      - name: Verify APK signature
+        run: |
+            BUILD_TOOLS_VERSION=$(ls -1 "${ANDROID_SDK_ROOT}/build-tools" | sort -V | tail -1)
+            "${ANDROID_SDK_ROOT}/build-tools/${BUILD_TOOLS_VERSION}/bin/apksigner" verify --print-certs android/app/build/outputs/apk/release/app-release.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: climaneer-android-signed

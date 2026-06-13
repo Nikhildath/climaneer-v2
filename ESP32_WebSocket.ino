@@ -1,14 +1,19 @@
 /*
-   CLIMANEER V2 - ESP32 Raw WebSocket Client
-   ==========================================
-   Connects ESP32 to the Climaneer server via plain WebSocket (no Socket.IO).
-   Uses the battle-tested WebSocketsClient library for reliable connections.
-
-   Server endpoint: /esp32 (WebSocket, JSON messages)
+   CLIMANEER V2 - ESP32 WebSocket Client
+   ======================================
+   Connects to the Climaneer realtime database via plain WebSocket.
+   Endpoint: /ws (JSON messages over WebSocket)
 
    DEPLOYMENT:
      Render:  HOST="climaneer-v2.onrender.com", PORT=443, USE_SSL=true
      Local:   HOST="192.168.1.100", PORT=3001, USE_SSL=false
+
+   LIBRARIES (install via Arduino Library Manager):
+     - WebSockets by Markus Sattler
+     - ArduinoJson by Benoit Blanchon
+     - DHT sensor library by Adafruit
+     - DallasTemperature by Miles Burton
+     - OneWire by Paul Stoffregen
 */
 
 #include <Arduino.h>
@@ -20,23 +25,23 @@
 #include <DallasTemperature.h>
 
 // =============================================================================
-// USER CONFIGURATION
+// CONFIGURATION - EDIT THESE
 // =============================================================================
 
-const char* WIFI_SSID = "YOUR_WIFI_SSID";
+const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-const char* HOST = "YOUR_SERVER_HOST";
-const int PORT = 443;
-const bool USE_SSL = true;
+const char* HOST     = "climaneer-v2.onrender.com";
+const int PORT       = 443;
+const bool USE_SSL   = true;
 
-const char* DEVICE_ID = "climaneer-esp32-01";
-const char* DEVICE_NAME = "Greenhouse ESP32";
-const char* FIRMWARE_VERSION = "3.0.0";
-const char* BOARD_TYPE = "ESP32 Dev Kit";
+const char* DEVICE_ID          = "climaneer-esp32-01";
+const char* DEVICE_NAME        = "Greenhouse ESP32";
+const char* FIRMWARE_VERSION   = "4.0.0";
+const char* BOARD_TYPE         = "ESP32 Dev Kit";
 
 // =============================================================================
-// HARDWARE PIN MAPPING
+// PIN MAPPING
 // =============================================================================
 
 #define SOIL_PIN        34
@@ -50,7 +55,7 @@ const char* BOARD_TYPE = "ESP32 Dev Kit";
 #define FLOW_SENSOR_PIN 27
 
 // =============================================================================
-// CALIBRATION CONSTANTS
+// CALIBRATION
 // =============================================================================
 
 const int ANALOG_MAX = 4095;
@@ -61,12 +66,12 @@ const float TANK_HEIGHT_CM = 20.0f, MIN_WATER_LEVEL_CM = 5.0f;
 const float DRY_SOIL_THRESHOLD = 50.0f;
 const float PULSES_PER_LITER = 400000.0f, MAX_FLOW_LPM = 1.0f, MAX_AQI = 500.0f;
 
-const unsigned long UPDATE_INTERVAL_MS = 2000;
+const unsigned long UPDATE_INTERVAL_MS    = 2000;
 const unsigned long HEARTBEAT_INTERVAL_MS = 15000;
 const unsigned long RECONNECT_INTERVAL_MS = 3000;
 
 // =============================================================================
-// GLOBAL STATE
+// STATE
 // =============================================================================
 
 float lastGoodWaterTemp = NAN;
@@ -85,7 +90,7 @@ DallasTemperature ds18b20(&oneWire);
 WebSocketsClient webSocket;
 
 // =============================================================================
-// UTILITY
+// HELPERS
 // =============================================================================
 
 float fmap_safe(float x, float in_min, float in_max, float out_min, float out_max) {
@@ -98,7 +103,7 @@ float clampf(float v, float lo, float hi) {
 }
 
 // =============================================================================
-// SENSOR READINGS
+// SENSORS
 // =============================================================================
 
 float readSoilMoisture() {
@@ -157,10 +162,6 @@ float readFlow() {
   return clampf(fmap_safe(lpm, 0, MAX_FLOW_LPM, 0, 100), 0, 100);
 }
 
-// =============================================================================
-// LOCAL AI FALLBACK
-// =============================================================================
-
 bool aiPumpDecision(float soil, float level) {
   if (level < (MIN_WATER_LEVEL_CM / TANK_HEIGHT_CM) * 100) return false;
   if (soil < DRY_SOIL_THRESHOLD) return true;
@@ -168,7 +169,7 @@ bool aiPumpDecision(float soil, float level) {
 }
 
 // =============================================================================
-// WEB SOCKET EVENT HANDLER
+// WEBSOCKET
 // =============================================================================
 
 void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
@@ -198,13 +199,13 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       DeserializationError err = deserializeJson(doc, (char*)payload);
       if (err) { Serial.println("[WS] Bad JSON"); return; }
 
-      String type = doc["type"].as<String>();
+      String msgType = doc["type"].as<String>();
 
-      if (type == "device_registered") {
+      if (msgType == "device_registered") {
         deviceRegistered = true;
         Serial.println("[WS] Server confirmed registration");
 
-      } else if (type == "command") {
+      } else if (msgType == "command") {
         String cmd = doc["command"].as<String>();
         String cmdId = doc["id"].as<String>();
         JsonObject params = doc["params"].as<JsonObject>();
@@ -228,12 +229,11 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
 
         } else if (cmd == "sync") {
           Serial.println("[CMD] Sync requested");
-          // Will be picked up by the next sensor update cycle
         }
-      } else if (type == "heartbeat_ack") {
+      } else if (msgType == "heartbeat_ack") {
         int pending = doc["pending_commands"] | 0;
         if (pending > 0) {
-          Serial.printf("[WS] Heartbeat ACK — %d commands pending\n", pending);
+          Serial.printf("[WS] Heartbeat ACK - %d commands pending\n", pending);
         }
       }
       break;
@@ -243,10 +243,6 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       break;
   }
 }
-
-// =============================================================================
-// SEND HELPERS
-// =============================================================================
 
 void sendSensorUpdate() {
   float soil = readSoilMoisture();
@@ -299,7 +295,7 @@ void sendHeartbeat() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n=== CLIMANEER V2 - ESP32 ===");
+  Serial.println("\n=== CLIMANEER V2 ESP32 ===");
 
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
@@ -326,19 +322,18 @@ void setup() {
     Serial.println(" FAILED");
   }
 
-  // Connect to the raw WebSocket endpoint (no Socket.IO)
-  Serial.printf("Connecting to %s:%d/esp32\n", HOST, PORT);
+  Serial.printf("Connecting to %s:%d/ws\n", HOST, PORT);
   webSocket.setReconnectInterval(RECONNECT_INTERVAL_MS);
   if (USE_SSL) {
-    webSocket.beginSSL(HOST, PORT, "/esp32");
+    webSocket.beginSSL(HOST, PORT, "/ws");
   } else {
-    webSocket.begin(HOST, PORT, "/esp32");
+    webSocket.begin(HOST, PORT, "/ws");
   }
   webSocket.onEvent(webSocketEvent);
 }
 
 // =============================================================================
-// MAIN LOOP
+// LOOP
 // =============================================================================
 
 void loop() {

@@ -359,6 +359,17 @@ export function cleanupOldData(days = 90) {
   run("DELETE FROM events WHERE created_at < datetime('now','localtime', ?)", [cutoff]);
 }
 
+export function deleteDevice(device_id) {
+  run("DELETE FROM devices WHERE device_id = ?", [device_id]);
+  run("DELETE FROM sensor_history WHERE device_id = ?", [device_id]);
+  run("DELETE FROM controls WHERE device_id = ?", [device_id]);
+  run("DELETE FROM commands WHERE device_id = ?", [device_id]);
+  run("DELETE FROM events WHERE device_id = ?", [device_id]);
+  run("DELETE FROM overrides WHERE device_id = ?", [device_id]);
+  run("DELETE FROM ai_recommendations WHERE device_id = ?", [device_id]);
+  run("DELETE FROM device_status_history WHERE device_id = ?", [device_id]);
+}
+
 export function closeDb() {
   if (db) {
     saveDb();

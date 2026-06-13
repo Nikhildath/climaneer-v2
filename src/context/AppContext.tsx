@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 import { useToast } from "@/hooks/use-toast";
 import { addNetworkStatusListener, getNetworkStatus } from "@/lib/capacitor-network";
 import { getSocket, onSocketEvent, removeSocketEvent, emitSocket } from "@/lib/socket-client";
+// getSocket() returns WebSocket; send() handles reconnection automatically
 import { useSensorStore } from "@/store/sensor-store";
 import type { SensorReading, SystemStatus, Alert as AlertType, Settings, TrendData } from "@/shared/schema";
 
@@ -91,7 +92,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [alerts, setAlerts] = useState<AlertType[]>([
     { id: "1", type: "info", title: "System Started", message: "climaneer v2 dashboard is now online and monitoring sensors", timestamp: new Date().toISOString(), read: false },
-    { id: "2", type: "success", title: "Server Connected", message: "Socket.IO connection established", timestamp: new Date(Date.now() - 1800000).toISOString(), read: true },
+    { id: "2", type: "success", title: "Server Connected", message: "WebSocket connection established", timestamp: new Date(Date.now() - 1800000).toISOString(), read: true },
   ]);
 
   const DEFAULT_SETTINGS: Omit<Settings, "id"> = {
@@ -131,7 +132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const systemStatus: SystemStatus = mapStoreToSystemStatus(store);
   const aiRecommendation = store.aiRecommendation || "";
 
-  // Socket.IO connection
+  // WebSocket connection
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
@@ -147,8 +148,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       store.setAIRecommendation(data.recommendation);
     });
 
-    onSocketEvent("device_list", (devices: any[]) => {
-      store.setDevices(devices);
+    onSocketEvent("device_list", (data: any) => {
+      const list = Array.isArray(data) ? data : data.devices || [];
+      store.setDevices(list);
     });
 
     onSocketEvent("device_status", (data: any) => {
@@ -205,12 +207,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     onSocketEvent("connect", () => {
       store.setConnected(true);
       setIsLoading(false);
-      toast({ title: "Connected", description: "Socket.IO connection established" });
+      toast({ title: "Connected", description: "WebSocket connection established" });
     });
 
     onSocketEvent("disconnect", () => {
       store.setConnected(false);
-      toast({ title: "Disconnected", description: "Socket.IO connection lost", variant: "destructive" });
+      toast({ title: "Disconnected", description: "WebSocket connection lost", variant: "destructive" });
     });
 
     onSocketEvent("connect_error", (err: any) => {
@@ -235,8 +237,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addNetworkStatusListener((status) => {
       setIsOnline(status.connected);
       if (status.connected) {
-        toast({ title: "Back Online", description: "Connection restored. Reconnecting Socket.IO..." });
-        getSocket().connect();
+        toast({ title: "Back Online", description: "Connection restored. Reconnecting..." });
+        getSocket(); // triggers reconnect via WebSocket
       } else {
         toast({ title: "Offline", description: "Network connection lost", variant: "destructive" });
       }

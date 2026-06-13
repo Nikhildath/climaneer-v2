@@ -39,9 +39,18 @@ export type SensorDataMap = {
   battery: number;
 };
 
+export interface DeviceSensorState {
+  sensors: SensorDataMap;
+  effective: boolean;
+  real_sensors: SensorDataMap | null;
+  controls: { manual_override: boolean; pump: boolean; mode: string };
+  aiRecommendation: string;
+}
+
 interface SensorState {
   connected: boolean;
   deviceId: string | null;
+  selectedDeviceId: string | null;
   realSensors: SensorDataMap | null;
   effectiveSensors: SensorDataMap | null;
   overrideActive: boolean;
@@ -52,6 +61,7 @@ interface SensorState {
     mode: string;
   };
   devices: DeviceInfo[];
+  deviceSensors: Record<string, DeviceSensorState>;
   sensorTrends: SensorReading[];
   history: HistoryEntry[];
   trendData: TrendData;
@@ -60,6 +70,7 @@ interface SensorState {
 
   setConnected: (connected: boolean) => void;
   setDeviceId: (id: string) => void;
+  setSelectedDevice: (id: string) => void;
   setSensorData: (data: { sensors: SensorDataMap; effective: boolean; real_sensors: SensorDataMap | null; device_id: string; device_name?: string }) => void;
   setAIRecommendation: (rec: string) => void;
   setControls: (controls: { manual_override: boolean; pump: boolean; mode: string }) => void;
@@ -74,12 +85,14 @@ interface SensorState {
 export const useSensorStore = create<SensorState>((set, get) => ({
   connected: false,
   deviceId: null,
+  selectedDeviceId: null,
   realSensors: null,
   effectiveSensors: null,
   overrideActive: false,
   aiRecommendation: "",
   controls: { manual_override: false, pump: false, mode: "AUTO" },
   devices: [],
+  deviceSensors: {},
   sensorTrends: [],
   history: [],
   trendData: {
@@ -96,7 +109,27 @@ export const useSensorStore = create<SensorState>((set, get) => ({
 
   setConnected: (connected) => set({ connected }),
 
-  setDeviceId: (deviceId) => set({ deviceId }),
+  setDeviceId: (deviceId) => {
+    const state = get();
+    set({ deviceId });
+    // Auto-select first device if none selected
+    if (!state.selectedDeviceId) {
+      set({ selectedDeviceId: deviceId });
+    }
+  },
+
+  setSelectedDevice: (id) => {
+    const state = get();
+    const ds = state.deviceSensors[id];
+    set({
+      selectedDeviceId: id,
+      effectiveSensors: ds?.sensors || null,
+      realSensors: ds?.real_sensors || null,
+      overrideActive: ds?.effective || false,
+      controls: ds?.controls || { manual_override: false, pump: false, mode: "AUTO" },
+      aiRecommendation: ds?.aiRecommendation || "",
+    });
+  },
 
   setSensorData: (data) => {
     const state = get();
@@ -115,30 +148,20 @@ export const useSensorStore = create<SensorState>((set, get) => ({
       battery: sensors.battery ?? 100,
     };
 
-    const trendData = state.trendData;
-    const newTimestamps = [...trendData.timestamps, new Date().toLocaleTimeString()].slice(-50);
-    const newMoisture = [...trendData.moisture, reading.soilMoisture].slice(-50);
-    const newHumidity = [...trendData.humidity, reading.airHumidity].slice(-50);
-    const newTemperature = [...trendData.temperature, reading.airTemperature].slice(-50);
-    const newPh = [...trendData.ph, reading.pH].slice(-50);
-    const newWaterLevel = [...trendData.waterLevel, reading.waterLevel].slice(-50);
-    const newFlow = [...trendData.flow, reading.flowRate].slice(-50);
-
-    const newTrends = [...state.sensorTrends, reading].slice(-200);
-    const newHistory: HistoryEntry = {
-      id: reading.id,
-      timestamp: reading.timestamp,
-      sensors: reading,
-    };
-
-    try {
-      localStorage.setItem("sensorTrends", JSON.stringify(newTrends));
-    } catch {}
-
     // Update controls from server payload if present
     const newControls = (data as any).pump !== undefined
       ? { pump: !!(data as any).pump, mode: (data as any).mode || "AUTO", manual_override: !!(data as any).manual_override }
-      : state.controls;
+      : (state.deviceSensors[data.device_id]?.controls || state.controls);
+
+    // Store per-device sensor data
+    const newDeviceSensors = { ...state.deviceSensors };
+    newDeviceSensors[data.device_id] = {
+      sensors,
+      effective: data.effective,
+      real_sensors: data.real_sensors,
+      controls: newControls,
+      aiRecommendation: newDeviceSensors[data.device_id]?.aiRecommendation || "",
+    };
 
     // Ensure device is in the devices list
     const devExists = state.devices.some((d) => d.device_id === data.device_id);
@@ -157,28 +180,42 @@ export const useSensorStore = create<SensorState>((set, get) => ({
           online_status: 1,
         }];
 
+    // Auto-select first device if none selected
+    let selectedDeviceId = state.selectedDeviceId;
+    if (!selectedDeviceId) {
+      selectedDeviceId = data.device_id;
+    }
+
+    // If this update is for the selected device, update the global sensor state
+    const isSelected = data.device_id === selectedDeviceId;
+
     set({
-      effectiveSensors: data.effective ? sensors : null,
-      realSensors: data.real_sensors || (data.effective ? null : sensors),
-      overrideActive: data.effective,
-      sensorTrends: newTrends,
-      deviceId: data.device_id,
-      controls: newControls,
+      deviceSensors: newDeviceSensors,
       devices: newDevices,
-      history: [newHistory, ...state.history].slice(0, 1000),
-      trendData: {
-        timestamps: newTimestamps,
-        moisture: newMoisture,
-        humidity: newHumidity,
-        temperature: newTemperature,
-        ph: newPh,
-        waterLevel: newWaterLevel,
-        flow: newFlow,
-      },
+      selectedDeviceId,
+      effectiveSensors: isSelected ? (data.effective ? sensors : null) : state.effectiveSensors,
+      realSensors: isSelected ? (data.real_sensors || (data.effective ? null : sensors)) : state.realSensors,
+      overrideActive: isSelected ? data.effective : state.overrideActive,
+      deviceId: data.device_id,
+      controls: isSelected ? newControls : state.controls,
+      aiRecommendation: isSelected ? (newDeviceSensors[data.device_id]?.aiRecommendation || "") : state.aiRecommendation,
+      history: [{ id: reading.id, timestamp: reading.timestamp, sensors: reading }, ...state.history].slice(0, 1000),
     });
   },
 
-  setAIRecommendation: (recommendation) => set({ aiRecommendation: recommendation }),
+  setAIRecommendation: (recommendation) => {
+    const state = get();
+    const selectedId = state.selectedDeviceId || state.deviceId;
+    if (selectedId) {
+      const newDeviceSensors = { ...state.deviceSensors };
+      if (newDeviceSensors[selectedId]) {
+        newDeviceSensors[selectedId] = { ...newDeviceSensors[selectedId], aiRecommendation: recommendation };
+      }
+      set({ aiRecommendation: recommendation, deviceSensors: newDeviceSensors });
+    } else {
+      set({ aiRecommendation: recommendation });
+    }
+  },
 
   setControls: (controls) => set({ controls }),
 
@@ -194,7 +231,6 @@ export const useSensorStore = create<SensorState>((set, get) => ({
           ),
         };
       }
-      // Device not in list yet — add it
       return {
         devices: [...state.devices, {
           device_id,

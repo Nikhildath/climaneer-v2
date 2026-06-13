@@ -6,9 +6,10 @@ import { useState, useEffect } from "react";
 import {
   Droplets, Cloud, Thermometer, Activity, Wind,
   Gauge as GaugeIcon, Beaker, Waves, Cpu, Zap, Battery, Wifi,
-  Leaf, Timer, Sparkles,
+  Leaf, Timer, Sparkles, ChevronDown,
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { useSensorStore } from "@/store/sensor-store";
 import { tempUnitLabel } from "@/lib/format-temp";
 import { motion } from "framer-motion";
 
@@ -48,6 +49,9 @@ const trendFor = (id: string, value: number, baseline: number): "up" | "down" | 
 
 export default function DashboardPage() {
   const { sensorData, systemStatus, aiRecommendation, settings } = useApp();
+  const devices = useSensorStore((s) => s.devices);
+  const selectedDeviceId = useSensorStore((s) => s.selectedDeviceId);
+  const setSelectedDevice = useSensorStore((s) => s.setSelectedDevice);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -102,6 +106,34 @@ export default function DashboardPage() {
             <div className="min-w-0">
               <p className="text-[11px] font-semibold gradient-text mb-0.5">AI Recommendation</p>
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{aiRecommendation}</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {devices.length > 1 && (
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="panel rounded-lg px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Cpu className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Device:</span>
+              <div className="relative">
+                <select
+                  value={selectedDeviceId || ""}
+                  onChange={(e) => setSelectedDevice(e.target.value)}
+                  className="appearance-none h-8 rounded-lg border border-border/40 bg-card pl-3 pr-8 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                >
+                  {devices.map((d) => (
+                    <option key={d.device_id} value={d.device_id}>
+                      {d.device_name || d.device_id} {!d.online_status ? "(offline)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+              </div>
+              <span className="text-[11px] text-muted-foreground">
+                {devices.filter((d) => d.online_status).length}/{devices.length} online
+              </span>
             </div>
           </div>
         </motion.div>

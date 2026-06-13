@@ -50,7 +50,7 @@ function SensorOverrideRow({ sensorKey, label, unit, min, max, step }: {
   const overrides = useSensorStore((s) => s.overrides);
   const effectiveSensors = useSensorStore((s) => s.effectiveSensors);
   const realSensors = useSensorStore((s) => s.realSensors);
-  const deviceId = useSensorStore((s) => s.deviceId);
+  const deviceId = useSensorStore((s) => s.selectedDeviceId || s.deviceId);
   const { toast } = useToast();
 
   const override = overrides.find((o) => o.sensor_key === sensorKey);
@@ -137,7 +137,7 @@ function SensorOverrideRow({ sensorKey, label, unit, min, max, step }: {
 }
 
 export default function DeveloperPage() {
-  const deviceId = useSensorStore((s) => s.deviceId);
+  const deviceId = useSensorStore((s) => s.selectedDeviceId || s.deviceId);
   const isTestingMode = useSensorStore((s) => s.isTestingMode);
   const connected = useSensorStore((s) => s.connected);
   const { toast } = useToast();

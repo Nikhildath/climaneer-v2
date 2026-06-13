@@ -329,9 +329,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   const handleRefresh = useCallback(async () => {
-    emitSocket("get_overrides", { device_id: store.deviceId });
+    const id = store.selectedDeviceId || store.deviceId;
+    emitSocket("get_overrides", { device_id: id });
     toast({ title: "Refreshed", description: "Data synced from server" });
-  }, [store.deviceId]);
+  }, [store.selectedDeviceId, store.deviceId]);
 
   const handleSettingsSave = useCallback((newSettings: Omit<Settings, "id">) => {
     setSettings(newSettings);
@@ -351,12 +352,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const togglePump = useCallback(async (turnOn: boolean) => {
-    const deviceId = store.deviceId;
+    const deviceId = store.selectedDeviceId || store.deviceId;
     if (!deviceId) {
       toast({ title: "Error", description: "No device connected", variant: "destructive" });
       return;
     }
-    // Update store immediately so UI reflects the change
     store.setControls({ ...store.controls, pump: turnOn });
     const sent = emitSocket("command", { device_id: deviceId, command: "pump", params: { state: turnOn } });
     if (sent) {
@@ -364,34 +364,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } else {
       toast({ title: "Command Queued", description: "Socket disconnected — command will send when reconnected", variant: "default" });
     }
-  }, [store.deviceId, store.controls, toast]);
+  }, [store.selectedDeviceId, store.deviceId, store.controls, toast]);
 
   const switchToAutoMode = useCallback(async () => {
-    const deviceId = store.deviceId;
+    const deviceId = store.selectedDeviceId || store.deviceId;
     if (!deviceId) { toast({ title: "Error", description: "No device connected", variant: "destructive" }); return; }
     const sent = emitSocket("command", { device_id: deviceId, command: "mode", params: { mode: "AUTO" } });
     store.setControls({ ...store.controls, mode: "AUTO" });
     setSettings((prev) => ({ ...prev, controlMode: "automatic" }));
     toast({ title: "Auto Mode", description: sent ? "System switched to automatic mode" : "Command queued — will apply when reconnected" });
-  }, [store.deviceId, toast]);
+  }, [store.selectedDeviceId, store.deviceId, toast]);
 
   const switchToManualMode = useCallback(async () => {
-    const deviceId = store.deviceId;
+    const deviceId = store.selectedDeviceId || store.deviceId;
     if (!deviceId) { toast({ title: "Error", description: "No device connected", variant: "destructive" }); return; }
     const sent = emitSocket("command", { device_id: deviceId, command: "mode", params: { mode: "MANUAL" } });
     store.setControls({ ...store.controls, mode: "MANUAL" });
     setSettings((prev) => ({ ...prev, controlMode: "manual" }));
     toast({ title: "Manual Mode", description: sent ? "System switched to manual mode" : "Command queued — will apply when reconnected" });
-  }, [store.deviceId, toast]);
+  }, [store.selectedDeviceId, store.deviceId, toast]);
 
   const switchToScheduledMode = useCallback(async () => {
-    const deviceId = store.deviceId;
+    const deviceId = store.selectedDeviceId || store.deviceId;
     if (!deviceId) { toast({ title: "Error", description: "No device connected", variant: "destructive" }); return; }
     const sent = emitSocket("command", { device_id: deviceId, command: "mode", params: { mode: "SCHEDULED" } });
     store.setControls({ ...store.controls, mode: "SCHEDULED" });
     setSettings((prev) => ({ ...prev, controlMode: "scheduled" }));
     toast({ title: "Scheduled Mode", description: sent ? "System switched to scheduled mode" : "Command queued — will apply when reconnected" });
-  }, [store.deviceId, toast]);
+  }, [store.selectedDeviceId, store.deviceId, toast]);
 
   const unreadAlertCount = alerts.filter((a) => !a.read).length;
 

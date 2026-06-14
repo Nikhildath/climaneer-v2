@@ -200,6 +200,7 @@ export const useSensorStore = create<SensorState>((set, get) => ({
       controls: isSelected ? newControls : state.controls,
       aiRecommendation: isSelected ? (newDeviceSensors[data.device_id]?.aiRecommendation || "") : state.aiRecommendation,
       history: [{ id: reading.id, timestamp: reading.timestamp, sensors: reading }, ...state.history].slice(0, 1000),
+      sensorTrends: [...state.sensorTrends, reading].slice(-200),
     });
   },
 

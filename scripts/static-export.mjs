@@ -73,7 +73,8 @@ try {
   addExportConfig();
 
   console.log("[3/4] Building Next.js static export...");
-  execSync("npx next build", { cwd: root, stdio: "inherit" });
+  const electronEnv = { ...process.env, NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001" };
+  execSync("npx next build", { cwd: root, stdio: "inherit", env: electronEnv });
 
   console.log("[4/4] Restoring API routes and config...");
   restoreApiRoutes();

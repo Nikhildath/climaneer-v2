@@ -10,7 +10,8 @@ let staticServer;
 
 function startServer() {
   return new Promise((resolve, reject) => {
-    const serverDir = path.join(__dirname, "..", "server");
+    const rootDir = app.isPackaged ? __dirname : path.join(__dirname, "..");
+    const serverDir = path.join(rootDir, "server");
     const serverMain = path.join(serverDir, "src", "index.js");
     if (!fs.existsSync(serverMain)) {
       console.log("[Electron] Server not found, skipping");
@@ -111,9 +112,12 @@ async function createWindow() {
   });
 
   if (!isDev) {
-    const outDir = path.join(__dirname, "..", "out");
+    const rootDir = app.isPackaged ? __dirname : path.join(__dirname, "..");
+    const outDir = path.join(rootDir, "out");
     if (fs.existsSync(outDir)) {
       await serveStatic(outDir, 3000);
+    } else {
+      console.log("[Electron] out/ directory not found at", outDir);
     }
     await startServer();
   }

@@ -102,10 +102,12 @@ jobs:
             chmod +x gradlew
             ./gradlew assembleRelease --no-daemon
 
+      - name: Install build-tools (apksigner)
+        run: sdkmanager "build-tools;35.0.0"
+
       - name: Verify APK signature
         run: |
-            BUILD_TOOLS_VERSION=$(ls -1 "${ANDROID_SDK_ROOT}/build-tools" | sort -V | tail -1)
-            "${ANDROID_SDK_ROOT}/build-tools/${BUILD_TOOLS_VERSION}/bin/apksigner" verify --print-certs android/app/build/outputs/apk/release/app-release.apk
+            "${ANDROID_SDK_ROOT}/build-tools/35.0.0/bin/apksigner" verify --print-certs android/app/build/outputs/apk/release/app-release.apk
 
       - uses: actions/upload-artifact@v4
         with:

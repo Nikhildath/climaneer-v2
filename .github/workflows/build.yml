@@ -89,6 +89,9 @@ jobs:
               echo "Generated ephemeral CI keystore"
             fi
 
+      - name: Install build-tools (apksigner)
+        run: sudo sdkmanager "build-tools;35.0.0"
+
       - name: Build static export & sync Capacitor
         run: node scripts/mobile-build.mjs
 
@@ -101,9 +104,6 @@ jobs:
             cd android
             chmod +x gradlew
             ./gradlew assembleRelease --no-daemon
-
-      - name: Install build-tools (apksigner)
-        run: sdkmanager "build-tools;35.0.0"
 
       - name: Verify APK signature
         run: |

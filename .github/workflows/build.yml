@@ -90,7 +90,14 @@ jobs:
             fi
 
       - name: Install build-tools (apksigner)
-        run: sdkmanager "build-tools;35.0.0"
+        run: |
+          sdkmanager "build-tools;35.0.0"
+          if [ ! -f "${ANDROID_SDK_ROOT}/build-tools/35.0.0/bin/apksigner" ]; then
+            echo "ERROR: apksigner not found after installation"
+            ls -la "${ANDROID_SDK_ROOT}/build-tools/" || echo "build-tools directory missing"
+            exit 1
+          fi
+          echo "apksigner successfully installed"
 
       - name: Build static export & sync Capacitor
         run: node scripts/mobile-build.mjs
@@ -107,7 +114,13 @@ jobs:
 
       - name: Verify APK signature
         run: |
-            "${ANDROID_SDK_ROOT}/build-tools/35.0.0/bin/apksigner" verify --print-certs android/app/build/outputs/apk/release/app-release.apk
+          apksigner_path="${ANDROID_SDK_ROOT}/build-tools/35.0.0/bin/apksigner"
+          if [ ! -f "$apksigner_path" ]; then
+            echo "ERROR: apksigner not found at $apksigner_path"
+            find "${ANDROID_SDK_ROOT}" -name "apksigner" -type f 2>/dev/null || echo "apksigner not found anywhere in SDK"
+            exit 1
+          fi
+          "$apksigner_path" verify --print-certs android/app/build/outputs/apk/release/app-release.apk
 
       - uses: actions/upload-artifact@v4
         with:

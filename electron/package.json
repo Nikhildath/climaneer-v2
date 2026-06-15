@@ -1,0 +1,36 @@
+{
+  "name": "climaneer-desktop",
+  "version": "2.0.0",
+  "description": "CLIMANEER V2 Desktop App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "prebuild": "node ../scripts/static-export.mjs",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.climaneer.dashboard",
+    "productName": "CLIMANEER V2",
+    "directories": {
+      "output": "../release"
+    },
+    "files": [
+      "main.js",
+      "../server/**/*",
+      "../out/**/*"
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "../public/favicon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": null
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

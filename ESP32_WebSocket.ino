@@ -76,8 +76,6 @@ const unsigned long PH_INTERVAL_MS        = 10000;
 
 const float PUMP_ON_THRESHOLD  = 35.0f;
 const float PUMP_OFF_THRESHOLD = 55.0f;
-const unsigned long PUMP_MIN_ON_MS  = 15000;
-const unsigned long PUMP_MIN_OFF_MS = 15000;
 
 // =============================================================================
 // STATE
@@ -94,7 +92,6 @@ unsigned long lastFlowMeasureTime = 0;
 unsigned long lastUpdateTime = 0;
 unsigned long lastHeartbeatTime = 0;
 unsigned long lastPHTime = 0;
-unsigned long pumpStateChangeTime = 0;
 bool pumpState = false;
 bool manualOverride = false;
 String currentMode = "AUTO";
@@ -249,19 +246,7 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
 
         if (cmd == "pump") {
           bool requested = params["state"] | false;
-          unsigned long now = millis();
-          unsigned long elapsed = now - pumpStateChangeTime;
-          bool currentRelay = digitalRead(RELAY_PIN) == LOW;
-          if (currentRelay && elapsed < PUMP_MIN_ON_MS && !requested) {
-            Serial.printf("[CMD] Pump OFF ignored (min on %lu)\n", PUMP_MIN_ON_MS - elapsed);
-            break;
-          }
-          if (!currentRelay && elapsed < PUMP_MIN_OFF_MS && requested) {
-            Serial.printf("[CMD] Pump ON ignored (min off %lu)\n", PUMP_MIN_OFF_MS - elapsed);
-            break;
-          }
           pumpState = requested;
-          if (pumpState != currentRelay) pumpStateChangeTime = now;
           digitalWrite(RELAY_PIN, pumpState ? LOW : HIGH);
           manualOverride = true;
           currentMode = "MANUAL";
@@ -340,21 +325,15 @@ void sendSensorUpdate() {
   bool currentPumpState = digitalRead(RELAY_PIN) == LOW;
 
   bool newPumpState;
-  if (currentMode == "MANUAL" && manualOverride) {
+  if (manualOverride) {
     newPumpState = pumpState;
   } else {
     newPumpState = aiPumpDecision(soil, level, currentPumpState, now);
   }
 
-  unsigned long elapsed = now - pumpStateChangeTime;
-  if (currentPumpState && elapsed < PUMP_MIN_ON_MS) newPumpState = true;
-  if (!currentPumpState && elapsed < PUMP_MIN_OFF_MS) newPumpState = false;
-
   if (newPumpState != currentPumpState) {
-    pumpStateChangeTime = millis();
+    digitalWrite(RELAY_PIN, newPumpState ? LOW : HIGH);
   }
-
-  digitalWrite(RELAY_PIN, newPumpState ? LOW : HIGH);
 
   Serial.printf("Soil: %.1f%% | pH: %.2f | Temp: %.1fC | Pump: %s | Mode: %s\n",
     soil, ph, temp, newPumpState ? "ON" : "OFF", currentMode.c_str());

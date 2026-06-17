@@ -83,7 +83,10 @@ const unsigned long PUMP_MIN_OFF_MS = 15000;
 // STATE
 // =============================================================================
 
-float lastGoodWaterTemp = NAN;
+float lastGoodWaterTemp = -127.0f;
+bool dsTempRequested = false;
+unsigned long dsTempRequestTime = 0;
+
 float lastPH = 7.0f;
 volatile unsigned long flowPulseCount = 0;
 volatile unsigned long lastFlowInterruptTime = 0;
@@ -156,11 +159,24 @@ float readAirHumidity() {
 }
 
 float readWaterTemp() {
+  if (dsTempRequested) {
+    if (millis() - dsTempRequestTime < 750) {
+      return lastGoodWaterTemp;
+    }
+    dsTempRequested = false;
+    float t = ds18b20.getTempCByIndex(0);
+    if (!(isnan(t) || t == DEVICE_DISCONNECTED_C)) {
+      lastGoodWaterTemp = t;
+    }
+    ds18b20.requestTemperatures();
+    dsTempRequested = true;
+    dsTempRequestTime = millis();
+    return lastGoodWaterTemp;
+  }
   ds18b20.requestTemperatures();
-  float t = ds18b20.getTempCByIndex(0);
-  if (isnan(t)) return lastGoodWaterTemp;
-  lastGoodWaterTemp = t;
-  return t;
+  dsTempRequested = true;
+  dsTempRequestTime = millis();
+  return lastGoodWaterTemp;
 }
 
 float readAirQuality() {
@@ -282,17 +298,27 @@ void sendSensorUpdate() {
   unsigned long now = millis();
 
   float soil = readSoilMoisture();
+  webSocket.loop();
+
   if (now - lastPHTime >= PH_INTERVAL_MS) {
     lastPH = readPH();
-    lastPHTime = now;
+    lastPHTime = millis();
+    webSocket.loop();
   }
   float ph = lastPH;
   float hum = readAirHumidity();
   float temp = readAirTemp();
+  webSocket.loop();
+
   float wtemp = readWaterTemp();
+  webSocket.loop();
+
   float level = readWaterLevel();
+  webSocket.loop();
+
   float aqi = readAirQuality();
   float flow = readFlow();
+  webSocket.loop();
 
   StaticJsonDocument<512> doc;
   doc["type"] = "sensor_update";
@@ -325,7 +351,7 @@ void sendSensorUpdate() {
   if (!currentPumpState && elapsed < PUMP_MIN_OFF_MS) newPumpState = false;
 
   if (newPumpState != currentPumpState) {
-    pumpStateChangeTime = now;
+    pumpStateChangeTime = millis();
   }
 
   digitalWrite(RELAY_PIN, newPumpState ? LOW : HIGH);
@@ -373,6 +399,10 @@ void setup() {
 
   dht.begin();
   ds18b20.begin();
+  ds18b20.setWaitForConversion(false);
+  ds18b20.requestTemperatures();
+  dsTempRequested = true;
+  dsTempRequestTime = millis();
   lastFlowMeasureTime = millis();
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);

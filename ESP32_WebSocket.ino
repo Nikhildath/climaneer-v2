@@ -65,7 +65,6 @@ float voltagePH7 = 1.82;
 float voltagePH4 = 2.05;
 float phSlope;
 const float TANK_HEIGHT_CM = 20.0f, MIN_WATER_LEVEL_CM = 5.0f;
-const float DRY_SOIL_THRESHOLD = 50.0f;
 const float PULSES_PER_LITER = 400000.0f, MAX_FLOW_LPM = 1.0f, MAX_AQI = 500.0f;
 
 const unsigned long FLOW_DEBOUNCE_US = 2000;
@@ -74,8 +73,8 @@ const unsigned long HEARTBEAT_INTERVAL_MS = 15000;
 const unsigned long RECONNECT_INTERVAL_MS = 3000;
 const unsigned long PH_INTERVAL_MS        = 10000;
 
-const float PUMP_ON_THRESHOLD  = 35.0f;
-const float PUMP_OFF_THRESHOLD = 55.0f;
+const float DRY_SOIL_THRESHOLD  = 50.0f;
+const float MOIST_SOIL_THRESHOLD = 70.0f;
 
 // =============================================================================
 // STATE
@@ -192,13 +191,11 @@ float readFlow() {
   return clampf(fmap_safe(lpm, 0, MAX_FLOW_LPM, 0, 100), 0, 100);
 }
 
-bool aiPumpDecision(float soil, float level, bool currentState, unsigned long now) {
+bool aiPumpDecision(float soil, float level) {
   if (level < (MIN_WATER_LEVEL_CM / TANK_HEIGHT_CM) * 100) return false;
-  if (currentState) {
-    return soil >= PUMP_OFF_THRESHOLD;
-  } else {
-    return soil < PUMP_ON_THRESHOLD;
-  }
+  if (soil < DRY_SOIL_THRESHOLD) return true;
+  if (soil > MOIST_SOIL_THRESHOLD) return false;
+  return false;
 }
 
 // =============================================================================
@@ -322,21 +319,11 @@ void sendSensorUpdate() {
   serializeJson(doc, json);
   webSocket.sendTXT(json);
 
-  bool currentPumpState = digitalRead(RELAY_PIN) == LOW;
-
-  bool newPumpState;
-  if (manualOverride) {
-    newPumpState = pumpState;
-  } else {
-    newPumpState = aiPumpDecision(soil, level, currentPumpState, now);
-  }
-
-  if (newPumpState != currentPumpState) {
-    digitalWrite(RELAY_PIN, newPumpState ? LOW : HIGH);
-  }
+  bool finalPump = manualOverride ? pumpState : aiPumpDecision(soil, level);
+  digitalWrite(RELAY_PIN, finalPump ? LOW : HIGH);
 
   Serial.printf("Soil: %.1f%% | pH: %.2f | Temp: %.1fC | Pump: %s | Mode: %s\n",
-    soil, ph, temp, newPumpState ? "ON" : "OFF", currentMode.c_str());
+    soil, ph, temp, finalPump ? "ON" : "OFF", currentMode.c_str());
 }
 
 void sendHeartbeat() {
